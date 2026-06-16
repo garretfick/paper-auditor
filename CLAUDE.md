@@ -1,0 +1,1 @@
+IMMEDIATELY open AGENTS.md.
