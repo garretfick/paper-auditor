@@ -1,0 +1,3 @@
+# TypeScript as the Implementation Language
+
+The audit engine is written in TypeScript despite Python being the default reflex for LLM-heavy applications. The driver is the long-term direction stated in [CONTEXT.md](../../CONTEXT.md): the v2 product is an **interactive exploration experience** over the **Paper**'s claim–citation graph, which will almost certainly be a web app. Picking TypeScript now lets the engine, the data model, and the eventual viewer share types, runtime, and packaging without an inter-language API boundary. Trade-off accepted: BibTeX parsing libraries are noticeably less mature in the Node ecosystem than in Python; we accept that and may wrap a Pandoc binary if pure-JS BibTeX parsing proves unreliable.
