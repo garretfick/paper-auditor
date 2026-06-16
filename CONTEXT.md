@@ -23,8 +23,16 @@ The person writing the **Paper** and running the audit on their own work.
 _Avoid_: User, writer, researcher.
 
 **Claim**:
-An assertion made in the **Paper** that requires support from a **Source**.
-_Avoid_: Assertion, statement, proposition.
+A unit of assertion the **Claim Extractor** groups out of the **Paper**'s text. Each **Claim** carries a **Claim Type** that determines whether it requires a **Citation**. A **Claim** may span part of a **Sentence**, an entire **Sentence**, or multiple **Sentences**; one **Sentence** may yield multiple **Claims**.
+_Avoid_: Assertion, statement, proposition, sentence (a **Sentence** is a grouping signal, not the unit).
+
+**Sentence**:
+A sentence in the **Paper**, identified by sentence-boundary detection during loading. Used as a strong grouping signal by the **Claim Extractor** and as the unit of location anchoring in **Findings**. Not the unit of audit — a **Claim** may span multiple **Sentences** or share one with other **Claims**.
+_Avoid_: Line, utterance, span (these conflate the structural unit with the assertion unit).
+
+**Claim Extractor**:
+The LLM-driven pass that reads the **Paper**'s text and emits **Claims** — grouping words into **Claims**, assigning each a **Claim Type**, and attaching the **Citations** the LLM judges support each **Claim**. One pass; grouping and typing are not separate stages.
+_Avoid_: Classifier (the Extractor does more than classify — it owns the grouping decision too), sentence tagger.
 
 **Citation**:
 The in-text marker in the **Paper** that attaches a **Source** to a **Claim** (e.g. `[@smith2020]`). Contains a **Citation Key**.
@@ -35,7 +43,7 @@ The cited work itself — the paper, book, or dataset that a **Citation** points
 _Avoid_: Reference, bibliography entry, work.
 
 **Claim Type**:
-The category of a **Claim**, assigned by the classifier. One of:
+The category of a **Claim**, assigned by the **Claim Extractor**. One of:
 `Background` (about prior work or established facts — must have a **Citation**; **the only audited type in v1**),
 `Method` (describes the author's own approach — no Citation required),
 `Result` (the Paper's own findings — no Citation required),
@@ -55,27 +63,30 @@ _Avoid_: Lookup, verification, validation.
 ## Relationships
 
 - An **Author** submits a **Paper** (plus its **Bibliography**) to the auditor.
-- A **Paper** contains many **Claims**.
-- Each **Claim** has a **Claim Type** assigned by the classifier.
-- A **Claim** may have zero or more **Citations** attached.
-- A **Citation** contains a **Citation Key** that points into the **Bibliography**.
+- A **Paper** is composed of **Sentences** (structural) and contains many **Citations** (each pointing into the **Bibliography** via a **Citation Key**).
+- The **Claim Extractor** reads the **Paper** and emits many **Claims**, each with a **Claim Type** and zero or more attached **Citations** — the attachment is the Extractor's judgement, not a positional rule. A **Claim** may span multiple **Sentences** and a **Sentence** may yield multiple **Claims**.
+- A **Citation** may be attached to zero, one, or several **Claims** depending on what the Extractor judges it supports. A **Citation** the Extractor attaches to no **Claim** is still subject to **Source Resolution** — orphan **Citations** can still be **UnresolvedCitation** or **FabricatedSource**.
 - A **Bibliography** entry describes a **Source**.
 - The audit produces zero or more **Findings** about the **Paper**.
 
 ## Example dialogue
 
 > **Dev:** The **Author** writes "Transformer models exhibit emergent capabilities `[@wei2022]`." What does the audit do with that?
-> **Domain expert:** Classifier tags it `Background` — it's making a claim about prior work, not about the **Paper**'s own contribution. The **Citation** is present, so no `UncitedClaim`. Then **Source Resolution**: Phase 1 checks `wei2022` is in the **Bibliography** — say it is. Phase 2 hits OpenAlex with that entry's DOI. If OpenAlex returns "Wei et al. 2022, Emergent Abilities of Large Language Models" and the title matches the **Bibliography** entry, we're done — no **Finding**.
+> **Domain expert:** The **Claim Extractor** emits one **Claim** from that sentence and tags it `Background` — it's making a claim about prior work, not about the **Paper**'s own contribution. The **Citation** `[@wei2022]` is attached, so no `UncitedClaim`. Then **Source Resolution**: Phase 1 checks `wei2022` is in the **Bibliography** — say it is. Phase 2 hits OpenAlex with that entry's DOI. If OpenAlex returns "Wei et al. 2022, Emergent Abilities of Large Language Models" and the title matches the **Bibliography** entry, we're done — no **Finding**.
 >
 > **Dev:** And if the sentence is "Our model achieves 92% accuracy"?
 > **Domain expert:** That's `Result` — it's the **Paper**'s own finding. Not audited. No **Citation** needed.
 >
 > **Dev:** What if the Author wrote "Transformer models exhibit emergent capabilities" with no Citation at all?
-> **Domain expert:** Classifier tags it `Background`, no Citations attached → `UncitedClaim` Finding pointing at that sentence.
+> **Domain expert:** The **Claim Extractor** tags it `Background`, no **Citations** attached → `UncitedClaim` Finding pointing at that **Claim**.
 >
 > **Dev:** And if the .bib entry for `wei2022` has a DOI that doesn't resolve in OpenAlex?
 > **Domain expert:** `FabricatedSource` Finding — high severity. That's exactly the failure mode the audit exists to catch.
+>
+> **Dev:** Trickier one — the **Author** writes "We achieve 92% accuracy on the test set, which is consistent with prior work `[@smith2021]`." That's one sentence with two assertions. What happens?
+> **Domain expert:** The **Claim Extractor** emits two **Claims** from that sentence. The first — "We achieve 92% accuracy on the test set" — gets `Result`; not audited, no **Citation** needed. The second — "which is consistent with prior work" — gets `Background` and the **Extractor** attaches `[@smith2021]` to it. So one **Sentence**, two **Claims**, one of them carrying the **Citation** the LLM judges supports it. If the **Author** had written the same sentence with no **Citation**, the second **Claim** would become an `UncitedClaim` **Finding** and the first would still pass — which is exactly the value the **Claim**-as-unit model unlocks: compound sentences can't hide an uncited assertion behind a cited one.
 
 ## Flagged ambiguities
 
 - "Reference" is deliberately not a domain term — it collides with programming meaning. Use **Source** for the cited work.
+- **Sentence** vs **Claim** is a deliberate split, not an accident. An earlier draft of this domain model used the **Sentence** as the audit unit; we widened it to **Claim** because compound sentences carry multiple distinct assertions, single assertions span multiple sentences, and shared-context lists fold multiple sibling assertions into one syntactic structure. **Sentence** remains as a structural primitive and **Finding**-location anchor; it is never the unit of audit. See ADR-0002.
