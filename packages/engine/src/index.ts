@@ -14,6 +14,15 @@ export interface AuditResult {
   findings: Finding[];
 }
 
+export function renderReport(findings: Finding[]): string {
+  if (findings.length === 0) return '# Audit report\n\nNo Findings.\n';
+  const lines = findings.map(
+    (f) =>
+      `- \`${f.subject}\` (line ${f.location.line}, column ${f.location.column}) — ${f.detail} [confidence: ${f.confidence}]`,
+  );
+  return lines.join('\n');
+}
+
 export async function audit(
   paperPath: string,
   bibPath: string,
