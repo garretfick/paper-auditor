@@ -41,4 +41,22 @@ describe('audit', () => {
       ]),
     );
   });
+
+  it('rejects with a friendly error when the Bibliography is malformed', async () => {
+    await expect(
+      audit(
+        path.join(fixturesDir, 'unresolved-citation.md'),
+        path.join(fixturesDir, 'malformed.bib'),
+      ),
+    ).rejects.toThrow(/BibTeX/i);
+  });
+
+  it('rejects with a friendly error when the Paper file is missing', async () => {
+    await expect(
+      audit(
+        path.join(fixturesDir, 'does-not-exist.md'),
+        path.join(fixturesDir, 'unresolved-citation.bib'),
+      ),
+    ).rejects.toThrow(/Paper/);
+  });
 });
