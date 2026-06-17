@@ -28,8 +28,12 @@ export async function audit(
   bibPath: string,
 ): Promise<AuditResult> {
   const [paperText, bibText] = await Promise.all([
-    readFile(paperPath, 'utf8'),
-    readFile(bibPath, 'utf8'),
+    readFile(paperPath, 'utf8').catch((err: Error) => {
+      throw new Error(`Cannot read Paper at ${paperPath}: ${err.message}`);
+    }),
+    readFile(bibPath, 'utf8').catch((err: Error) => {
+      throw new Error(`Cannot read Bibliography at ${bibPath}: ${err.message}`);
+    }),
   ]);
 
   const citationKeys: string[] = [];
@@ -46,6 +50,11 @@ export async function audit(
   for (const match of bibText.matchAll(/@\w+\{([^,]+),/g)) {
     const key = match[1];
     if (key) bibKeys.add(key.trim());
+  }
+  if (bibText.trim().length > 0 && bibKeys.size === 0) {
+    throw new Error(
+      `Malformed BibTeX in ${bibPath}: file has content but no entries were found`,
+    );
   }
 
   const findings: Finding[] = [];
