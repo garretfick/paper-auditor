@@ -24,9 +24,13 @@ export async function audit(
   ]);
 
   const citationKeys: string[] = [];
-  for (const match of paperText.matchAll(/\[@([^\]]+)\]/g)) {
-    const key = match[1];
-    if (key) citationKeys.push(key);
+  for (const bracket of paperText.matchAll(/\[([^\]]+)\]/g)) {
+    const inside = bracket[1];
+    if (!inside) continue;
+    for (const keyMatch of inside.matchAll(/@(\w+)/g)) {
+      const key = keyMatch[1];
+      if (key) citationKeys.push(key);
+    }
   }
 
   const bibKeys = new Set<string>();
