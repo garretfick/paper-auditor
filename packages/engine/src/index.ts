@@ -1,5 +1,7 @@
 import { readFile } from 'node:fs/promises';
 
+export * from './resolver';
+
 export type FindingType = 'UnresolvedCitation';
 
 export interface Finding {
