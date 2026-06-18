@@ -14,11 +14,16 @@ export interface OpenAlexRecord {
 export interface OpenAlexClient {
   lookupByDoi(doi: string): Promise<OpenAlexRecord | null>;
   lookupByArxiv(arxivId: string): Promise<OpenAlexRecord | null>;
+  searchByTitleAuthor(
+    title: string,
+    author: string,
+  ): Promise<OpenAlexRecord | null>;
 }
 
 export type Resolution =
   | { kind: 'resolved' }
-  | { kind: 'fabricated-source'; detail: string };
+  | { kind: 'fabricated-source'; detail: string }
+  | { kind: 'unverifiable-source'; detail: string };
 
 function authorsMatch(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false;
@@ -49,15 +54,29 @@ export async function resolveBibEntry(
   client: OpenAlexClient,
 ): Promise<Resolution> {
   let record: OpenAlexRecord | null = null;
+  let usedTitleAuthorSearch = false;
   if (entry.doi) {
     record = await client.lookupByDoi(entry.doi);
   } else if (entry.arxivId) {
     record = await client.lookupByArxiv(entry.arxivId);
+  } else {
+    usedTitleAuthorSearch = true;
+    record = await client.searchByTitleAuthor(
+      entry.title,
+      entry.authors[0] ?? '',
+    );
   }
 
   if (record) {
     const mismatch = detectMismatch(entry, record);
     if (mismatch) return mismatch;
+    return { kind: 'resolved' };
+  }
+  if (usedTitleAuthorSearch) {
+    return {
+      kind: 'unverifiable-source',
+      detail: `OpenAlex title+author search for ${entry.citationKey} returned no candidate (no DOI or arXivID to verify against)`,
+    };
   }
   return { kind: 'resolved' };
 }

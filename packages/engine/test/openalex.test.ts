@@ -88,6 +88,36 @@ describe('createOpenAlexClient', () => {
     expect(second).toEqual(first);
   });
 
+  it('searchByTitleAuthor queries OpenAlex with title and author and maps the first result', async () => {
+    let requestedUrl = '';
+    const fakeFetch: typeof fetch = async (url) => {
+      if (typeof url === 'string') requestedUrl = url;
+      else if (url instanceof URL) requestedUrl = url.href;
+      else requestedUrl = url.url;
+      return new Response(
+        JSON.stringify({
+          results: [
+            {
+              title: 'Searched Title',
+              authorships: [{ author: { display_name: 'Searched Author' } }],
+            },
+          ],
+        }),
+        { status: 200 },
+      );
+    };
+
+    const client = createOpenAlexClient({ fetch: fakeFetch });
+    const record = await client.searchByTitleAuthor('A Book', 'Smith, Jane');
+
+    expect(requestedUrl).toContain('search=');
+    expect(requestedUrl).toContain('author');
+    expect(record).toEqual({
+      title: 'Searched Title',
+      authors: ['Searched Author'],
+    });
+  });
+
   it('createFileCache persists records across instances', async () => {
     const workDir = await mkdtemp(path.join(tmpdir(), 'pa-cache-'));
     const cachePath = path.join(workDir, 'cache.json');

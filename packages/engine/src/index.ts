@@ -6,7 +6,10 @@ export * from './resolver';
 export * from './bibtex';
 export * from './openalex';
 
-export type FindingType = 'UnresolvedCitation' | 'FabricatedSource';
+export type FindingType =
+  | 'UnresolvedCitation'
+  | 'FabricatedSource'
+  | 'UnverifiableSource';
 
 export interface AuditOptions {
   openAlexClient?: OpenAlexClient;
@@ -104,6 +107,14 @@ export async function audit(
           subject: `[@${entry.citationKey}]`,
           detail: resolution.detail,
           confidence: 'high',
+        });
+      } else if (resolution.kind === 'unverifiable-source') {
+        findings.push({
+          type: 'UnverifiableSource',
+          location: { line: 0, column: 0 },
+          subject: `[@${entry.citationKey}]`,
+          detail: resolution.detail,
+          confidence: 'medium',
         });
       }
     }
