@@ -1,27 +1,27 @@
+import { parse, type ParsedAuthor } from '@retorquere/bibtex-parser';
 import type { BibEntry } from './resolver';
 
-const ENTRY_REGEX = /@\w+\s*\{\s*([^,\s]+)\s*,([\s\S]*?)\n\}/g;
-
-function getField(body: string, name: string): string | undefined {
-  const match = body.match(new RegExp(`${name}\\s*=\\s*\\{([^}]+)\\}`, 'i'));
-  return match?.[1]?.trim();
+function formatAuthor(a: ParsedAuthor): string {
+  if (a.lastName && a.firstName) return `${a.lastName}, ${a.firstName}`;
+  if (a.lastName) return a.lastName;
+  if (a.firstName) return a.firstName;
+  return '';
 }
 
 export function parseBibliography(bibtex: string): BibEntry[] {
-  const entries: BibEntry[] = [];
-  for (const match of bibtex.matchAll(ENTRY_REGEX)) {
-    const citationKey = match[1]!;
-    const body = match[2] ?? '';
-    const authorField = getField(body, 'author');
-    const doi = getField(body, 'doi');
-    const arxivId = getField(body, 'eprint');
-    entries.push({
-      citationKey,
-      title: getField(body, 'title') ?? '',
-      authors: authorField ? authorField.split(/\s+and\s+/) : [],
-      ...(doi ? { doi } : {}),
-      ...(arxivId ? { arxivId } : {}),
-    });
-  }
-  return entries;
+  const result = parse(bibtex);
+  return result.entries.map((entry) => {
+    const f = entry.fields;
+    const authorField = f.author;
+    const authors = Array.isArray(authorField)
+      ? authorField.map(formatAuthor).filter((a) => a !== '')
+      : [];
+    return {
+      citationKey: entry.key,
+      title: typeof f.title === 'string' ? f.title : '',
+      authors,
+      ...(typeof f.doi === 'string' ? { doi: f.doi } : {}),
+      ...(typeof f.eprint === 'string' ? { arxivId: f.eprint } : {}),
+    };
+  });
 }
