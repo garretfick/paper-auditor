@@ -1,0 +1,11 @@
+name: integration
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: ./.github/workflows/partial_build.yaml
