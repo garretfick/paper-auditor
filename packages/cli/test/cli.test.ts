@@ -17,9 +17,13 @@ async function runCli(
   cwd: string,
 ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
   try {
-    const { stdout, stderr } = await execFileAsync(tsxBin, [cliEntry, ...args], {
-      cwd,
-    });
+    const { stdout, stderr } = await execFileAsync(
+      tsxBin,
+      [cliEntry, ...args],
+      {
+        cwd,
+      },
+    );
     return { exitCode: 0, stdout, stderr };
   } catch (err) {
     const e = err as { code?: number; stdout?: string; stderr?: string };

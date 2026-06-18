@@ -10,9 +10,11 @@ import {
 
 describe('createOpenAlexClient', () => {
   it('lookupByDoi queries OpenAlex by DOI and maps the work to an OpenAlexRecord', async () => {
-    let requestedUrl: string | URL = '';
+    let requestedUrl = '';
     const fakeFetch: typeof fetch = async (url) => {
-      requestedUrl = url as string | URL;
+      if (typeof url === 'string') requestedUrl = url;
+      else if (url instanceof URL) requestedUrl = url.href;
+      else requestedUrl = url.url;
       return new Response(
         JSON.stringify({
           title: 'Returned Title',
@@ -25,8 +27,8 @@ describe('createOpenAlexClient', () => {
     const client = createOpenAlexClient({ fetch: fakeFetch });
     const record = await client.lookupByDoi('10.1234/test');
 
-    expect(String(requestedUrl)).toContain('doi:');
-    expect(String(requestedUrl)).toContain('10.1234');
+    expect(requestedUrl).toContain('doi:');
+    expect(requestedUrl).toContain('10.1234');
     expect(record).toEqual({
       title: 'Returned Title',
       authors: ['Returned Author'],
@@ -34,9 +36,11 @@ describe('createOpenAlexClient', () => {
   });
 
   it('lookupByArxiv queries OpenAlex by arXiv ID and maps the first result', async () => {
-    let requestedUrl: string | URL = '';
+    let requestedUrl = '';
     const fakeFetch: typeof fetch = async (url) => {
-      requestedUrl = url as string | URL;
+      if (typeof url === 'string') requestedUrl = url;
+      else if (url instanceof URL) requestedUrl = url.href;
+      else requestedUrl = url.url;
       return new Response(
         JSON.stringify({
           results: [
@@ -53,8 +57,8 @@ describe('createOpenAlexClient', () => {
     const client = createOpenAlexClient({ fetch: fakeFetch });
     const record = await client.lookupByArxiv('2206.07682');
 
-    expect(String(requestedUrl)).toContain('arxiv');
-    expect(String(requestedUrl)).toContain('2206.07682');
+    expect(requestedUrl).toContain('arxiv');
+    expect(requestedUrl).toContain('2206.07682');
     expect(record).toEqual({
       title: 'arXiv Returned Title',
       authors: ['arXiv Author'],
