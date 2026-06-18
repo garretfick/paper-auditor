@@ -71,6 +71,11 @@ describe('audit', () => {
       async lookupByArxiv() {
         return null;
       },
+      async searchByTitleAuthor() {
+        throw new Error(
+          'searchByTitleAuthor should not be called for DOI-bearing entries',
+        );
+      },
     };
 
     const result = await audit(
@@ -80,6 +85,34 @@ describe('audit', () => {
     );
 
     expect(result.findings.some((f) => f.type === 'FabricatedSource')).toBe(
+      true,
+    );
+  });
+
+  it('emits an UnverifiableSource Finding when title+author search returns no candidate', async () => {
+    const fakeClient: OpenAlexClient = {
+      async lookupByDoi() {
+        throw new Error(
+          'lookupByDoi should not be called for entries without DOI',
+        );
+      },
+      async lookupByArxiv() {
+        throw new Error(
+          'lookupByArxiv should not be called for entries without arXiv ID',
+        );
+      },
+      async searchByTitleAuthor() {
+        return null;
+      },
+    };
+
+    const result = await audit(
+      path.join(fixturesDir, 'needs-search.md'),
+      path.join(fixturesDir, 'needs-search.bib'),
+      { openAlexClient: fakeClient },
+    );
+
+    expect(result.findings.some((f) => f.type === 'UnverifiableSource')).toBe(
       true,
     );
   });

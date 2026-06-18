@@ -20,6 +20,11 @@ describe('resolveBibEntry', () => {
       async lookupByArxiv() {
         return null;
       },
+      async searchByTitleAuthor() {
+        throw new Error(
+          'searchByTitleAuthor should not be called when a DOI is present',
+        );
+      },
     };
 
     const resolution = await resolveBibEntry(entry, client);
@@ -45,6 +50,11 @@ describe('resolveBibEntry', () => {
       async lookupByArxiv() {
         return null;
       },
+      async searchByTitleAuthor() {
+        throw new Error(
+          'searchByTitleAuthor should not be called when a DOI is present',
+        );
+      },
     };
 
     const resolution = await resolveBibEntry(entry, client);
@@ -69,6 +79,11 @@ describe('resolveBibEntry', () => {
       },
       async lookupByArxiv() {
         return null;
+      },
+      async searchByTitleAuthor() {
+        throw new Error(
+          'searchByTitleAuthor should not be called when a DOI is present',
+        );
       },
     };
 
@@ -97,6 +112,11 @@ describe('resolveBibEntry', () => {
           authors: ['Author, A.'],
         };
       },
+      async searchByTitleAuthor() {
+        throw new Error(
+          'searchByTitleAuthor should not be called when an arXiv ID is present',
+        );
+      },
     };
 
     const resolution = await resolveBibEntry(entry, client);
@@ -104,24 +124,94 @@ describe('resolveBibEntry', () => {
     expect(resolution.kind).toBe('fabricated-source');
   });
 
-  it('returns resolved without contacting OpenAlex when there is no DOI and no arXivID (slice 2 punts this case to slice 3)', async () => {
+  it('falls back to title+author search when there is no DOI or arXiv ID and returns resolved on a matching record', async () => {
+    let searchCalledWith: { title: string; author: string } | null = null;
+
     const entry: BibEntry = {
       citationKey: 'somebook2020',
-      title: 'A Book',
-      authors: ['Author, A.'],
+      title: 'A Book About Things',
+      authors: ['Smith, Jane'],
     };
 
     const client: OpenAlexClient = {
       async lookupByDoi() {
-        throw new Error('DOI lookup should not be called');
+        throw new Error('DOI lookup should not be called when there is no DOI');
       },
       async lookupByArxiv() {
-        throw new Error('arXiv lookup should not be called');
+        throw new Error(
+          'arXiv lookup should not be called when there is no arXivID',
+        );
+      },
+      async searchByTitleAuthor(title, author) {
+        searchCalledWith = { title, author };
+        return {
+          title: 'A Book About Things',
+          authors: ['Smith, Jane'],
+        };
       },
     };
 
     const resolution = await resolveBibEntry(entry, client);
 
+    expect(searchCalledWith).toEqual({
+      title: 'A Book About Things',
+      author: 'Smith, Jane',
+    });
     expect(resolution.kind).toBe('resolved');
+  });
+
+  it('returns FabricatedSource when title+author search returns a non-matching candidate', async () => {
+    const entry: BibEntry = {
+      citationKey: 'somebook2020',
+      title: 'My Original Book Title',
+      authors: ['Smith, Jane'],
+    };
+
+    const client: OpenAlexClient = {
+      async lookupByDoi() {
+        throw new Error('DOI lookup should not be called when there is no DOI');
+      },
+      async lookupByArxiv() {
+        throw new Error(
+          'arXiv lookup should not be called when there is no arXivID',
+        );
+      },
+      async searchByTitleAuthor() {
+        return {
+          title: 'Different Title But Returned Anyway',
+          authors: ['Other, Person'],
+        };
+      },
+    };
+
+    const resolution = await resolveBibEntry(entry, client);
+
+    expect(resolution.kind).toBe('fabricated-source');
+  });
+
+  it('returns UnverifiableSource when title+author search finds no candidate', async () => {
+    const entry: BibEntry = {
+      citationKey: 'obscurebook',
+      title: 'A Very Obscure Book',
+      authors: ['Unknown, Person'],
+    };
+
+    const client: OpenAlexClient = {
+      async lookupByDoi() {
+        throw new Error('DOI lookup should not be called when there is no DOI');
+      },
+      async lookupByArxiv() {
+        throw new Error(
+          'arXiv lookup should not be called when there is no arXivID',
+        );
+      },
+      async searchByTitleAuthor() {
+        return null;
+      },
+    };
+
+    const resolution = await resolveBibEntry(entry, client);
+
+    expect(resolution.kind).toBe('unverifiable-source');
   });
 });

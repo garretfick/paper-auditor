@@ -148,5 +148,16 @@ export function createOpenAlexClient(
         return workToRecord(first);
       });
     },
+    async searchByTitleAuthor(title, author) {
+      return memoize(`search:${title}|${author}`, async () => {
+        const url = `https://api.openalex.org/works?search=${encodeURIComponent(title)}&filter=author.search:${encodeURIComponent(author)}`;
+        const res = await fetchWithRetry(url);
+        if (!res.ok) return null;
+        const result = (await res.json()) as OpenAlexSearchResult;
+        const first = result.results?.[0];
+        if (!first) return null;
+        return workToRecord(first);
+      });
+    },
   };
 }

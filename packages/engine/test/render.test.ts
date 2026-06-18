@@ -73,4 +73,21 @@ describe('renderReport', () => {
     expect(output).toContain('## UnresolvedCitation');
     expect(output).toContain('## FabricatedSource');
   });
+
+  it('groups UnverifiableSource Findings under their own per-type heading', () => {
+    const findings: Finding[] = [
+      {
+        type: 'UnverifiableSource',
+        location: { line: 0, column: 0 },
+        subject: '[@obscure2010]',
+        detail: 'OpenAlex returned no candidate for title+author search',
+        confidence: 'medium',
+      },
+    ];
+
+    const output = renderReport(findings);
+
+    expect(output).toContain('## UnverifiableSource');
+    expect(output).toContain('[@obscure2010]');
+  });
 });

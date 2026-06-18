@@ -22,6 +22,11 @@ describe('runCli', () => {
       async lookupByArxiv() {
         return null;
       },
+      async searchByTitleAuthor() {
+        throw new Error(
+          'searchByTitleAuthor should not be called for DOI-bearing entries',
+        );
+      },
     };
 
     const exitCode = await runCli(
