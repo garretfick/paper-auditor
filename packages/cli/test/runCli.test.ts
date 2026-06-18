@@ -37,6 +37,21 @@ describe('runCli', () => {
     expect(report).toContain('FabricatedSource');
   });
 
+  it('rejects unknown flags with exit code 2 instead of silently ignoring them', async () => {
+    const workDir = await mkdtemp(path.join(tmpdir(), 'pa-runcli-'));
+
+    const exitCode = await runCli(
+      [
+        path.join(engineFixturesDir, 'unresolved-citation.md'),
+        path.join(engineFixturesDir, 'unresolved-citation.bib'),
+        '--no-cahce',
+      ],
+      { cwd: workDir },
+    );
+
+    expect(exitCode).toBe(2);
+  });
+
   it('with --no-cache, does not write a cache file', async () => {
     const workDir = await mkdtemp(path.join(tmpdir(), 'pa-runcli-'));
     const cachePath = path.join(workDir, 'openalex.json');

@@ -9,6 +9,7 @@ import {
 import { writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
+import { parseArgs } from 'node:util';
 
 export interface RunCliOptions {
   cwd?: string;
@@ -16,18 +17,39 @@ export interface RunCliOptions {
   cachePath?: string;
 }
 
+const USAGE = 'Usage: paper-auditor <paper.md> <paper.bib> [--no-cache]';
+
 export async function runCli(
   args: string[],
   opts: RunCliOptions = {},
 ): Promise<number> {
   const cwd = opts.cwd ?? process.cwd();
-  const positional = args.filter((a) => !a.startsWith('--'));
-  const flags = new Set(args.filter((a) => a.startsWith('--')));
-  const noCache = flags.has('--no-cache');
-  const [paperPath, bibPath] = positional;
+
+  let parsed: ReturnType<typeof parseArgs<{
+    options: { 'no-cache': { type: 'boolean'; default: false } };
+    allowPositionals: true;
+    strict: true;
+  }>>;
+  try {
+    parsed = parseArgs({
+      args,
+      options: {
+        'no-cache': { type: 'boolean', default: false },
+      },
+      allowPositionals: true,
+      strict: true,
+    });
+  } catch (err) {
+    console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    console.error(USAGE);
+    return 2;
+  }
+
+  const noCache = parsed.values['no-cache'] === true;
+  const [paperPath, bibPath] = parsed.positionals;
 
   if (!paperPath || !bibPath) {
-    console.error('Usage: paper-auditor <paper.md> <paper.bib> [--no-cache]');
+    console.error(USAGE);
     return 2;
   }
 
