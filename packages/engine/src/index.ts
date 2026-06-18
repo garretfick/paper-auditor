@@ -1,8 +1,16 @@
 import { readFile } from 'node:fs/promises';
+import { parseBibliography } from './bibtex';
+import { resolveBibEntry, type OpenAlexClient } from './resolver';
 
 export * from './resolver';
+export * from './bibtex';
+export * from './openalex';
 
-export type FindingType = 'UnresolvedCitation';
+export type FindingType = 'UnresolvedCitation' | 'FabricatedSource';
+
+export interface AuditOptions {
+  openAlexClient?: OpenAlexClient;
+}
 
 export interface Finding {
   type: FindingType;
@@ -28,6 +36,7 @@ export function renderReport(findings: Finding[]): string {
 export async function audit(
   paperPath: string,
   bibPath: string,
+  opts: AuditOptions = {},
 ): Promise<AuditResult> {
   const [paperText, bibText] = await Promise.all([
     readFile(paperPath, 'utf8').catch((err: Error) => {
@@ -48,20 +57,17 @@ export async function audit(
     }
   }
 
-  const bibKeys = new Set<string>();
-  for (const match of bibText.matchAll(/@\w+\{([^,]+),/g)) {
-    const key = match[1];
-    if (key) bibKeys.add(key.trim());
-  }
-  if (bibText.trim().length > 0 && bibKeys.size === 0) {
+  const entries = parseBibliography(bibText);
+  if (bibText.trim().length > 0 && entries.length === 0) {
     throw new Error(
       `Malformed BibTeX in ${bibPath}: file has content but no entries were found`,
     );
   }
+  const bibByKey = new Map(entries.map((e) => [e.citationKey, e]));
 
   const findings: Finding[] = [];
   for (const key of citationKeys) {
-    if (!bibKeys.has(key)) {
+    if (!bibByKey.has(key)) {
       findings.push({
         type: 'UnresolvedCitation',
         location: { line: 0, column: 0 },
@@ -69,6 +75,21 @@ export async function audit(
         detail: `Citation Key "${key}" not found in Bibliography`,
         confidence: 'high',
       });
+    }
+  }
+
+  if (opts.openAlexClient) {
+    for (const entry of entries) {
+      const resolution = await resolveBibEntry(entry, opts.openAlexClient);
+      if (resolution.kind === 'fabricated-source') {
+        findings.push({
+          type: 'FabricatedSource',
+          location: { line: 0, column: 0 },
+          subject: `[@${entry.citationKey}]`,
+          detail: resolution.detail,
+          confidence: 'high',
+        });
+      }
     }
   }
 

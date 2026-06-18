@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import path from 'node:path';
 import url from 'node:url';
-import { audit } from '../src';
+import { audit, type OpenAlexClient } from '../src';
 
 const here = path.dirname(url.fileURLToPath(import.meta.url));
 const fixturesDir = path.join(here, 'fixtures');
@@ -58,5 +58,29 @@ describe('audit', () => {
         path.join(fixturesDir, 'unresolved-citation.bib'),
       ),
     ).rejects.toThrow(/Paper/);
+  });
+
+  it('emits a FabricatedSource Finding when an injected OpenAlex client reports a DOI mismatch', async () => {
+    const fakeClient: OpenAlexClient = {
+      async lookupByDoi() {
+        return {
+          title: 'A Completely Different Title',
+          authors: ['Wei, Jason'],
+        };
+      },
+      async lookupByArxiv() {
+        return null;
+      },
+    };
+
+    const result = await audit(
+      path.join(fixturesDir, 'with-doi.md'),
+      path.join(fixturesDir, 'with-doi.bib'),
+      { openAlexClient: fakeClient },
+    );
+
+    expect(
+      result.findings.some((f) => f.type === 'FabricatedSource'),
+    ).toBe(true);
   });
 });
