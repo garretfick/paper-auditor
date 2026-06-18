@@ -79,8 +79,8 @@ describe('audit', () => {
       { openAlexClient: fakeClient },
     );
 
-    expect(
-      result.findings.some((f) => f.type === 'FabricatedSource'),
-    ).toBe(true);
+    expect(result.findings.some((f) => f.type === 'FabricatedSource')).toBe(
+      true,
+    );
   });
 });

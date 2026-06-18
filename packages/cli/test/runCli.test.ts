@@ -14,7 +14,10 @@ describe('runCli', () => {
     const workDir = await mkdtemp(path.join(tmpdir(), 'pa-runcli-'));
     const fakeClient: OpenAlexClient = {
       async lookupByDoi() {
-        return { title: 'A Completely Different Title', authors: ['Wei, Jason'] };
+        return {
+          title: 'A Completely Different Title',
+          authors: ['Wei, Jason'],
+        };
       },
       async lookupByArxiv() {
         return null;

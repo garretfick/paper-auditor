@@ -11,7 +11,8 @@ export function createMemoryCache(): ResponseCache {
   const store = new Map<string, OpenAlexRecord | null>();
   return {
     get(key) {
-      return store.has(key) ? store.get(key)! : undefined;
+      if (!store.has(key)) return undefined;
+      return store.get(key) ?? null;
     },
     set(key, value) {
       store.set(key, value);
@@ -36,13 +37,17 @@ export function createFileCache(filePath: string): ResponseCache {
 
   return {
     get(key) {
-      return store.has(key) ? store.get(key)! : undefined;
+      if (!store.has(key)) return undefined;
+      return store.get(key) ?? null;
     },
     set(key, value) {
       store.set(key, value);
       const dir = path.dirname(filePath);
       if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-      writeFileSync(filePath, JSON.stringify(Object.fromEntries(store), null, 2));
+      writeFileSync(
+        filePath,
+        JSON.stringify(Object.fromEntries(store), null, 2),
+      );
     },
   };
 }
@@ -62,7 +67,7 @@ export interface OpenAlexClientOptions {
 interface OpenAlexWork {
   title?: string;
   display_name?: string;
-  authorships?: Array<{ author?: { display_name?: string } }>;
+  authorships?: { author?: { display_name?: string } }[];
 }
 
 interface OpenAlexSearchResult {
@@ -96,7 +101,7 @@ export function createOpenAlexClient(
       try {
         const res = await fetchImpl(url, { headers });
         if (res.status >= 500) {
-          throw new Error(`OpenAlex returned ${res.status}`);
+          throw new Error(`OpenAlex returned ${String(res.status)}`);
         }
         return res;
       } catch (err) {

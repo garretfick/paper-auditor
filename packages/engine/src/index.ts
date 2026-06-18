@@ -36,10 +36,10 @@ export function renderReport(findings: Finding[]): string {
 
   const sections: string[] = ['# Audit report'];
   for (const [type, group] of byType) {
-    sections.push(`## ${type} (${group.length})`);
+    sections.push(`## ${type} (${String(group.length)})`);
     for (const f of group) {
       sections.push(
-        `- \`${f.subject}\` (line ${f.location.line}, column ${f.location.column}) — ${f.detail} [confidence: ${f.confidence}]`,
+        `- \`${f.subject}\` (line ${String(f.location.line)}, column ${String(f.location.column)}) — ${f.detail} [confidence: ${f.confidence}]`,
       );
     }
   }
@@ -53,11 +53,13 @@ export async function audit(
   opts: AuditOptions = {},
 ): Promise<AuditResult> {
   const [paperText, bibText] = await Promise.all([
-    readFile(paperPath, 'utf8').catch((err: Error) => {
-      throw new Error(`Cannot read Paper at ${paperPath}: ${err.message}`);
+    readFile(paperPath, 'utf8').catch((err: unknown) => {
+      const detail = err instanceof Error ? err.message : String(err);
+      throw new Error(`Cannot read Paper at ${paperPath}: ${detail}`);
     }),
-    readFile(bibPath, 'utf8').catch((err: Error) => {
-      throw new Error(`Cannot read Bibliography at ${bibPath}: ${err.message}`);
+    readFile(bibPath, 'utf8').catch((err: unknown) => {
+      const detail = err instanceof Error ? err.message : String(err);
+      throw new Error(`Cannot read Bibliography at ${bibPath}: ${detail}`);
     }),
   ]);
 

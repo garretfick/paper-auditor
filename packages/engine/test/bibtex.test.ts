@@ -14,7 +14,9 @@ describe('parseBibliography', () => {
     expect(entries[0]!.citationKey).toBe('wei2022');
     // Parser lowercases titles per BibTeX convention (single-brace values are
     // case-foldable); double braces or {Word} groupings preserve case.
-    expect(entries[0]!.title).toMatch(/emergent abilities of large language models/i);
+    expect(entries[0]!.title).toMatch(
+      /emergent abilities of large language models/i,
+    );
   });
 
   it('extracts authors as a list, splitting on " and "', () => {

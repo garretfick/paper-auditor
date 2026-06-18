@@ -25,11 +25,13 @@ export async function runCli(
 ): Promise<number> {
   const cwd = opts.cwd ?? process.cwd();
 
-  let parsed: ReturnType<typeof parseArgs<{
-    options: { 'no-cache': { type: 'boolean'; default: false } };
-    allowPositionals: true;
-    strict: true;
-  }>>;
+  let parsed: ReturnType<
+    typeof parseArgs<{
+      options: { 'no-cache': { type: 'boolean'; default: false } };
+      allowPositionals: true;
+      strict: true;
+    }>
+  >;
   try {
     parsed = parseArgs({
       args,
@@ -45,7 +47,7 @@ export async function runCli(
     return 2;
   }
 
-  const noCache = parsed.values['no-cache'] === true;
+  const noCache = parsed.values['no-cache'];
   const [paperPath, bibPath] = parsed.positionals;
 
   if (!paperPath || !bibPath) {
@@ -54,10 +56,12 @@ export async function runCli(
   }
 
   try {
-    const openAlexClient = opts.openAlexClient ?? buildDefaultClient({
-      cachePath: opts.cachePath,
-      noCache,
-    });
+    const openAlexClient =
+      opts.openAlexClient ??
+      buildDefaultClient({
+        cachePath: opts.cachePath,
+        noCache,
+      });
     const result = await audit(paperPath, bibPath, { openAlexClient });
     const report = renderReport(result.findings);
     await writeFile(path.join(cwd, 'audit-report.md'), report, 'utf8');
@@ -82,6 +86,8 @@ function buildDefaultClient(opts: {
   return createOpenAlexClient({ ...(cache ? { cache } : {}) });
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  runCli(process.argv.slice(2)).then((code) => process.exit(code));
+if (import.meta.url === `file://${String(process.argv[1])}`) {
+  void runCli(process.argv.slice(2)).then((code) => {
+    process.exit(code);
+  });
 }

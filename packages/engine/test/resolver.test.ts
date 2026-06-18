@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  resolveBibEntry,
-  type BibEntry,
-  type OpenAlexClient,
-} from '../src';
+import { resolveBibEntry, type BibEntry, type OpenAlexClient } from '../src';
 
 describe('resolveBibEntry', () => {
   it('returns FabricatedSource when OpenAlex returns a mismatched title for the DOI', async () => {
@@ -91,7 +87,9 @@ describe('resolveBibEntry', () => {
 
     const client: OpenAlexClient = {
       async lookupByDoi() {
-        throw new Error('DOI lookup should not be called when no DOI is present');
+        throw new Error(
+          'DOI lookup should not be called when no DOI is present',
+        );
       },
       async lookupByArxiv() {
         return {
