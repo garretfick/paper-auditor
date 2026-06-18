@@ -16,7 +16,7 @@ Each problem is a **Finding**. Today the auditor emits three Finding types, all 
 
 The vocabulary above (Paper, Bibliography, Citation, Source, Finding, …) is precise and load-bearing. If a term is capitalized in the docs, it has a specific meaning defined in [`CONTEXT.md`](./CONTEXT.md).
 
-## What it does *not* do yet
+## What it does _not_ do yet
 
 The long-term design centers on a **Claim Extractor** — an LLM pass that breaks the Paper into individual Claims, types each one, and flags `Background` Claims that lack a supporting Citation (`UncitedClaim`). That layer is **not implemented yet**: the current auditor works only at the Citation/Bibliography level, not the Claim level, so it cannot yet tell you that a sentence asserting prior work was left uncited. Finding locations are also still coarse (line/column are not yet resolved to real positions in the Paper).
 
