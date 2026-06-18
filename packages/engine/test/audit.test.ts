@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import path from 'node:path';
 import url from 'node:url';
-import { audit, type OpenAlexClient } from '../src';
+import { audit, stubClaimExtractor, type OpenAlexClient } from '../src';
 
 const here = path.dirname(url.fileURLToPath(import.meta.url));
 const fixturesDir = path.join(here, 'fixtures');
@@ -115,5 +115,15 @@ describe('audit', () => {
     expect(result.findings.some((f) => f.type === 'UnverifiableSource')).toBe(
       true,
     );
+  });
+
+  it('emits UncitedClaim Findings via the injected ClaimExtractor', async () => {
+    const result = await audit(
+      path.join(fixturesDir, 'two-sentences.md'),
+      path.join(fixturesDir, 'two-sentences.bib'),
+      { claimExtractor: stubClaimExtractor },
+    );
+
+    expect(result.findings.some((f) => f.type === 'UncitedClaim')).toBe(true);
   });
 });

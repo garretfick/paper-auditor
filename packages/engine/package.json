@@ -10,10 +10,12 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "@types/sbd": "^1.0.5",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   },
   "dependencies": {
-    "@retorquere/bibtex-parser": "^10.0.0"
+    "@retorquere/bibtex-parser": "^10.0.0",
+    "sbd": "^1.0.19"
   }
 }
