@@ -49,4 +49,28 @@ describe('renderReport', () => {
     expect(output).toContain('high');
     expect(output).toContain('medium');
   });
+
+  it('groups Findings by type under per-type headings', () => {
+    const findings: Finding[] = [
+      {
+        type: 'UnresolvedCitation',
+        location: { line: 3, column: 22 },
+        subject: '[@a]',
+        detail: 'Citation Key "a" not found in Bibliography',
+        confidence: 'high',
+      },
+      {
+        type: 'FabricatedSource',
+        location: { line: 0, column: 0 },
+        subject: '[@b]',
+        detail: 'Title mismatch',
+        confidence: 'high',
+      },
+    ];
+
+    const output = renderReport(findings);
+
+    expect(output).toContain('## UnresolvedCitation');
+    expect(output).toContain('## FabricatedSource');
+  });
 });

@@ -26,11 +26,25 @@ export interface AuditResult {
 
 export function renderReport(findings: Finding[]): string {
   if (findings.length === 0) return '# Audit report\n\nNo Findings.\n';
-  const lines = findings.map(
-    (f) =>
-      `- \`${f.subject}\` (line ${f.location.line}, column ${f.location.column}) — ${f.detail} [confidence: ${f.confidence}]`,
-  );
-  return lines.join('\n');
+
+  const byType = new Map<FindingType, Finding[]>();
+  for (const f of findings) {
+    const list = byType.get(f.type) ?? [];
+    list.push(f);
+    byType.set(f.type, list);
+  }
+
+  const sections: string[] = ['# Audit report'];
+  for (const [type, group] of byType) {
+    sections.push(`## ${type} (${group.length})`);
+    for (const f of group) {
+      sections.push(
+        `- \`${f.subject}\` (line ${f.location.line}, column ${f.location.column}) — ${f.detail} [confidence: ${f.confidence}]`,
+      );
+    }
+  }
+
+  return sections.join('\n\n') + '\n';
 }
 
 export async function audit(
