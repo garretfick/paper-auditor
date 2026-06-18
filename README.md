@@ -64,30 +64,6 @@ The audit writes its report to `audit-report.md` in the current directory.
 - `1` — audit completed, one or more Findings (see `audit-report.md`).
 - `2` — could not run (bad arguments, unreadable Paper or Bibliography, malformed BibTeX).
 
-## Development
-
-The repo is a pnpm workspace with two packages:
-
-- **`packages/engine`** — the audit engine: BibTeX parsing, OpenAlex client, Source Resolution, and report rendering.
-- **`packages/cli`** — the command-line front end.
-
-Common tasks are wired through [`just`](https://github.com/casey/just):
-
-```sh
-just          # list available recipes
-just setup    # pnpm install --frozen-lockfile
-just build    # typecheck, run tests, lint, and check formatting
-```
-
-Or run the pieces directly:
-
-```sh
-pnpm -r test                  # run all package tests (vitest)
-pnpm exec tsc -b              # typecheck
-pnpm exec eslint packages     # lint
-pnpm exec prettier --check .  # formatting
-```
-
 ## Project documents
 
 - [`CONTEXT.md`](./CONTEXT.md) — the domain model and canonical vocabulary.
