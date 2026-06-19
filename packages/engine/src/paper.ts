@@ -104,7 +104,7 @@ function extractSentences(source: string): Sentence[] {
   return result;
 }
 
-function positionAt(source: string, offset: number): Position {
+export function positionAt(source: string, offset: number): Position {
   let line = 1;
   let column = 1;
   for (let i = 0; i < offset; i++) {

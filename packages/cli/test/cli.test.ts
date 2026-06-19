@@ -36,22 +36,30 @@ async function runCli(
 }
 
 describe('paper-auditor CLI', () => {
-  it('writes the audit report and exits 1 when Findings exist', async () => {
-    const workDir = await mkdtemp(path.join(tmpdir(), 'paper-auditor-cli-'));
+  // Subprocess smoke. The CLI's default ClaimExtractor is Ollama-backed, so
+  // this test needs Ollama running. Gated on RUN_LIVE_OLLAMA=1 so the default
+  // build doesn't depend on the LLM. The in-process runCli tests cover the
+  // wiring offline by injecting stubClaimExtractor.
+  it.skipIf(process.env.RUN_LIVE_OLLAMA !== '1')(
+    'writes the audit report and exits 1 when Findings exist',
+    async () => {
+      const workDir = await mkdtemp(path.join(tmpdir(), 'paper-auditor-cli-'));
 
-    const result = await runCli(
-      [
-        path.join(engineFixturesDir, 'unresolved-citation.md'),
-        path.join(engineFixturesDir, 'unresolved-citation.bib'),
-      ],
-      workDir,
-    );
+      const result = await runCli(
+        [
+          path.join(engineFixturesDir, 'unresolved-citation.md'),
+          path.join(engineFixturesDir, 'unresolved-citation.bib'),
+        ],
+        workDir,
+      );
 
-    expect(result.exitCode).toBe(1);
-    const report = await readFile(
-      path.join(workDir, 'audit-report.md'),
-      'utf8',
-    );
-    expect(report).toContain('[@nonexistent]');
-  });
+      expect(result.exitCode).toBe(1);
+      const report = await readFile(
+        path.join(workDir, 'audit-report.md'),
+        'utf8',
+      );
+      expect(report).toContain('[@nonexistent]');
+    },
+    60_000,
+  );
 });

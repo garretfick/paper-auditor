@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import url from 'node:url';
 import { runCli } from '../src/main';
-import type { OpenAlexClient } from '@paper-auditor/engine';
+import { stubClaimExtractor, type OpenAlexClient } from '@paper-auditor/engine';
 
 const here = path.dirname(url.fileURLToPath(import.meta.url));
 const engineFixturesDir = path.resolve(here, '../../engine/test/fixtures');
@@ -34,7 +34,11 @@ describe('runCli', () => {
         path.join(engineFixturesDir, 'with-doi.md'),
         path.join(engineFixturesDir, 'with-doi.bib'),
       ],
-      { cwd: workDir, openAlexClient: fakeClient },
+      {
+        cwd: workDir,
+        openAlexClient: fakeClient,
+        claimExtractor: stubClaimExtractor,
+      },
     );
 
     expect(exitCode).toBe(1);
@@ -70,7 +74,7 @@ describe('runCli', () => {
         path.join(engineFixturesDir, 'unresolved-citation.bib'),
         '--no-cache',
       ],
-      { cwd: workDir, cachePath },
+      { cwd: workDir, cachePath, claimExtractor: stubClaimExtractor },
     );
 
     expect(exitCode).toBe(1);

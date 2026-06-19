@@ -1,9 +1,10 @@
 import {
   audit,
   createFileCache,
+  createOllamaClaimExtractor,
   createOpenAlexClient,
   renderReport,
-  stubClaimExtractor,
+  type ClaimExtractor,
   type OpenAlexClient,
   type ResponseCache,
 } from '@paper-auditor/engine';
@@ -15,10 +16,12 @@ import { parseArgs } from 'node:util';
 export interface RunCliOptions {
   cwd?: string;
   openAlexClient?: OpenAlexClient;
+  claimExtractor?: ClaimExtractor;
   cachePath?: string;
 }
 
-const USAGE = 'Usage: paper-auditor <paper.md> <paper.bib> [--no-cache]';
+const USAGE =
+  'Usage: paper-auditor <paper.md> <paper.bib> [--no-cache] [--model <name>] [--ollama-url <url>]';
 
 export async function runCli(
   args: string[],
@@ -28,7 +31,11 @@ export async function runCli(
 
   let parsed: ReturnType<
     typeof parseArgs<{
-      options: { 'no-cache': { type: 'boolean'; default: false } };
+      options: {
+        'no-cache': { type: 'boolean'; default: false };
+        model: { type: 'string' };
+        'ollama-url': { type: 'string' };
+      };
       allowPositionals: true;
       strict: true;
     }>
@@ -38,6 +45,8 @@ export async function runCli(
       args,
       options: {
         'no-cache': { type: 'boolean', default: false },
+        model: { type: 'string' },
+        'ollama-url': { type: 'string' },
       },
       allowPositionals: true,
       strict: true,
@@ -49,6 +58,8 @@ export async function runCli(
   }
 
   const noCache = parsed.values['no-cache'];
+  const modelName = parsed.values.model;
+  const baseURL = parsed.values['ollama-url'];
   const [paperPath, bibPath] = parsed.positionals;
 
   if (!paperPath || !bibPath) {
@@ -59,13 +70,19 @@ export async function runCli(
   try {
     const openAlexClient =
       opts.openAlexClient ??
-      buildDefaultClient({
+      buildDefaultOpenAlexClient({
         cachePath: opts.cachePath,
         noCache,
       });
+    const claimExtractor =
+      opts.claimExtractor ??
+      createOllamaClaimExtractor({
+        ...(modelName ? { modelName } : {}),
+        ...(baseURL ? { baseURL } : {}),
+      });
     const result = await audit(paperPath, bibPath, {
       openAlexClient,
-      claimExtractor: stubClaimExtractor,
+      claimExtractor,
     });
     const report = renderReport(result.findings);
     await writeFile(path.join(cwd, 'audit-report.md'), report, 'utf8');
@@ -76,7 +93,7 @@ export async function runCli(
   }
 }
 
-function buildDefaultClient(opts: {
+function buildDefaultOpenAlexClient(opts: {
   cachePath?: string;
   noCache: boolean;
 }): OpenAlexClient {
