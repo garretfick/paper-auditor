@@ -1,0 +1,7 @@
+{
+  "description": "One sentence carries two distinct Claims: a Result (the 92% accuracy) with no citation, and a Background (consistent with prior work) with [@smith2021] attached. The headline case the Claim-as-unit model exists for.",
+  "minClaims": 2,
+  "maxClaims": 3,
+  "mustHaveCitationKey": "smith2021",
+  "mustHaveClaimType": "Background"
+}

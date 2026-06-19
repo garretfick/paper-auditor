@@ -1,0 +1,7 @@
+{
+  "description": "Three sibling Claims sharing common context. Each Citation should be attached to its corresponding sub-Claim, not all three to one composite Claim — the ADR-0005 case.",
+  "minClaims": 3,
+  "maxClaims": 4,
+  "mustHaveCitationKey": "devlin",
+  "mustHaveClaimType": "Background"
+}
