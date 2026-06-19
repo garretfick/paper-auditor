@@ -1,18 +1,22 @@
-import { readFile } from 'node:fs/promises';
-import { parseBibliography } from './bibtex';
+import type { Claim, ClaimExtractor } from './extractor';
+import { loadPaper } from './paper';
 import { resolveBibEntry, type OpenAlexClient } from './resolver';
 
 export * from './resolver';
 export * from './bibtex';
 export * from './openalex';
+export * from './paper';
+export * from './extractor';
 
 export type FindingType =
   | 'UnresolvedCitation'
   | 'FabricatedSource'
-  | 'UnverifiableSource';
+  | 'UnverifiableSource'
+  | 'UncitedClaim';
 
 export interface AuditOptions {
   openAlexClient?: OpenAlexClient;
+  claimExtractor?: ClaimExtractor;
 }
 
 export interface Finding {
@@ -25,6 +29,25 @@ export interface Finding {
 
 export interface AuditResult {
   findings: Finding[];
+}
+
+export function findUncitedClaims(claims: Claim[]): Finding[] {
+  const findings: Finding[] = [];
+  for (const claim of claims) {
+    if (claim.type === 'Background' && claim.citationKeys.length === 0) {
+      const firstSpan = claim.spans[0];
+      findings.push({
+        type: 'UncitedClaim',
+        location: firstSpan
+          ? { line: firstSpan.start.line, column: firstSpan.start.column }
+          : { line: 0, column: 0 },
+        subject: claim.quotedText,
+        detail: 'Background Claim with no attached Citation',
+        confidence: claim.confidence,
+      });
+    }
+  }
+  return findings;
 }
 
 export function renderReport(findings: Finding[]): string {
@@ -55,50 +78,32 @@ export async function audit(
   bibPath: string,
   opts: AuditOptions = {},
 ): Promise<AuditResult> {
-  const [paperText, bibText] = await Promise.all([
-    readFile(paperPath, 'utf8').catch((err: unknown) => {
-      const detail = err instanceof Error ? err.message : String(err);
-      throw new Error(`Cannot read Paper at ${paperPath}: ${detail}`);
-    }),
-    readFile(bibPath, 'utf8').catch((err: unknown) => {
-      const detail = err instanceof Error ? err.message : String(err);
-      throw new Error(`Cannot read Bibliography at ${bibPath}: ${detail}`);
-    }),
-  ]);
-
-  const citationKeys: string[] = [];
-  for (const bracket of paperText.matchAll(/\[([^\]]+)\]/g)) {
-    const inside = bracket[1];
-    if (!inside) continue;
-    for (const keyMatch of inside.matchAll(/@(\w+)/g)) {
-      const key = keyMatch[1];
-      if (key) citationKeys.push(key);
-    }
-  }
-
-  const entries = parseBibliography(bibText);
-  if (bibText.trim().length > 0 && entries.length === 0) {
-    throw new Error(
-      `Malformed BibTeX in ${bibPath}: file has content but no entries were found`,
-    );
-  }
-  const bibByKey = new Map(entries.map((e) => [e.citationKey, e]));
+  const paper = await loadPaper(paperPath, bibPath);
+  const bibByKey = new Map(paper.bibliography.map((e) => [e.citationKey, e]));
 
   const findings: Finding[] = [];
-  for (const key of citationKeys) {
-    if (!bibByKey.has(key)) {
+  for (const citation of paper.citations) {
+    if (!bibByKey.has(citation.citationKey)) {
       findings.push({
         type: 'UnresolvedCitation',
-        location: { line: 0, column: 0 },
-        subject: `[@${key}]`,
-        detail: `Citation Key "${key}" not found in Bibliography`,
+        location: {
+          line: citation.span.start.line,
+          column: citation.span.start.column,
+        },
+        subject: `[@${citation.citationKey}]`,
+        detail: `Citation Key "${citation.citationKey}" not found in Bibliography`,
         confidence: 'high',
       });
     }
   }
 
+  if (opts.claimExtractor) {
+    const claims = await opts.claimExtractor(paper);
+    findings.push(...findUncitedClaims(claims));
+  }
+
   if (opts.openAlexClient) {
-    for (const entry of entries) {
+    for (const entry of paper.bibliography) {
       const resolution = await resolveBibEntry(entry, opts.openAlexClient);
       if (resolution.kind === 'fabricated-source') {
         findings.push({

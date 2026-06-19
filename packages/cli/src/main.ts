@@ -3,6 +3,7 @@ import {
   createFileCache,
   createOpenAlexClient,
   renderReport,
+  stubClaimExtractor,
   type OpenAlexClient,
   type ResponseCache,
 } from '@paper-auditor/engine';
@@ -62,7 +63,10 @@ export async function runCli(
         cachePath: opts.cachePath,
         noCache,
       });
-    const result = await audit(paperPath, bibPath, { openAlexClient });
+    const result = await audit(paperPath, bibPath, {
+      openAlexClient,
+      claimExtractor: stubClaimExtractor,
+    });
     const report = renderReport(result.findings);
     await writeFile(path.join(cwd, 'audit-report.md'), report, 'utf8');
     return result.findings.length > 0 ? 1 : 0;

@@ -90,4 +90,21 @@ describe('renderReport', () => {
     expect(output).toContain('## UnverifiableSource');
     expect(output).toContain('[@obscure2010]');
   });
+
+  it('groups UncitedClaim Findings under their own per-type heading', () => {
+    const findings: Finding[] = [
+      {
+        type: 'UncitedClaim',
+        location: { line: 3, column: 1 },
+        subject: 'Transformers exhibit emergent capabilities.',
+        detail: 'Background Claim with no attached Citation',
+        confidence: 'low',
+      },
+    ];
+
+    const output = renderReport(findings);
+
+    expect(output).toContain('## UncitedClaim');
+    expect(output).toContain('Transformers exhibit emergent capabilities.');
+  });
 });
