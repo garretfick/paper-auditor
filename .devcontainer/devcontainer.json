@@ -7,10 +7,5 @@
     "ghcr.io/guiyomh/features/just:0": {},
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },
-  "mounts": [
-    "source=paper-auditor-2-node-modules,target=/workspaces/paper-auditor-2/node_modules,type=volume",
-    "source=paper-auditor-2-cli-node-modules,target=/workspaces/paper-auditor-2/packages/cli/node_modules,type=volume",
-    "source=paper-auditor-2-engine-node-modules,target=/workspaces/paper-auditor-2/packages/engine/node_modules,type=volume"
-  ],
-  "postCreateCommand": "sudo chown -R node:node /workspaces/paper-auditor-2/node_modules /workspaces/paper-auditor-2/packages/cli/node_modules /workspaces/paper-auditor-2/packages/engine/node_modules && just setup"
+  "postCreateCommand": "just setup"
 }
