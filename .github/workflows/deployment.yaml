@@ -1,0 +1,22 @@
+name: deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      dryrun:
+        type: boolean
+        required: true
+        default: true
+  schedule:
+    - cron: '0 19 * * 1'
+
+jobs:
+  version:
+    uses: ./.github/workflows/partial_version.yaml
+    with:
+      dryrun: ${{ github.event_name == 'workflow_dispatch' && inputs.dryrun || false }}
+    secrets: inherit
+
+  build:
+    needs: version
+    uses: ./.github/workflows/partial_build.yaml

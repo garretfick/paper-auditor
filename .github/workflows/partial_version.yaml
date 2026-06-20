@@ -1,0 +1,72 @@
+name: partial-version
+
+on:
+  workflow_call:
+    inputs:
+      dryrun:
+        type: boolean
+        required: true
+    outputs:
+      version:
+        description: The next semantic version (e.g. 0.3.0)
+        value: ${{ jobs.version.outputs.version }}
+      commit-tag:
+        description: The git tag created (e.g. v0.3.0); empty in dryrun
+        value: ${{ jobs.version.outputs.commit-tag }}
+      gh-release-id:
+        description: The GitHub Release id; empty in dryrun
+        value: ${{ jobs.version.outputs.gh-release-id }}
+      gh-release-tag:
+        description: The GitHub Release tag (e.g. v0.3.0); empty in dryrun
+        value: ${{ jobs.version.outputs.gh-release-tag }}
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.compute.outputs.version }}
+      commit-tag: ${{ steps.publish.outputs.commit-tag }}
+      gh-release-id: ${{ steps.publish.outputs.gh-release-id }}
+      gh-release-tag: ${{ steps.publish.outputs.gh-release-tag }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          token: ${{ secrets.PAPER_AUDITOR_WORKFLOW_PUBLISH_TOKEN }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
+      - run: corepack enable
+
+      - uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3.1.0
+
+      - id: compute
+        run: echo "version=$(just get-next-version)" >> "$GITHUB_OUTPUT"
+
+      - if: ${{ !inputs.dryrun }}
+        run: just version "${{ steps.compute.outputs.version }}"
+
+      - if: ${{ !inputs.dryrun }}
+        run: just commit-version "Continuous Integration" "ci@paper-auditor.local" "${{ steps.compute.outputs.version }}"
+
+      - if: ${{ !inputs.dryrun }}
+        run: git push origin HEAD --follow-tags
+
+      - if: ${{ !inputs.dryrun }}
+        id: publish
+        env:
+          GH_TOKEN: ${{ secrets.PAPER_AUDITOR_WORKFLOW_PUBLISH_TOKEN }}
+        run: |
+          version='${{ steps.compute.outputs.version }}'
+          gh release create "v$version" --title "v$version" --notes "Automated release v$version"
+          release_id=$(gh release view "v$version" --json id -q .id)
+          {
+            echo "commit-tag=v$version"
+            echo "gh-release-id=$release_id"
+            echo "gh-release-tag=v$version"
+          } >> "$GITHUB_OUTPUT"
