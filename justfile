@@ -38,3 +38,33 @@ commit-version name email num:
     git -c user.name="{{name}}" -c user.email="{{email}}" \
         commit -am "Release v{{num}}"
     git tag "v{{num}}"
+
+# Bundle the CLI + runtime deps into <artifact-name>, with <version> baked in.
+# Extension drives format: .tar.gz uses gzip + Unix shim, .zip uses zip + cmd shim.
+# Both formats produced via bsdtar (built into modern macOS, Linux, and Windows 10+).
+package version artifact-name: setup
+    #!/usr/bin/env bash
+    set -euo pipefail
+    staging=dist/package
+    rm -rf "$staging"
+    mkdir -p "$staging"
+    pnpm exec esbuild packages/cli/src/main.ts \
+        --bundle --platform=node --format=esm \
+        --banner:js="import { createRequire as __pa_createRequire } from 'node:module'; const require = __pa_createRequire(import.meta.url);" \
+        --define:__PAPER_AUDITOR_VERSION__='"{{version}}"' \
+        --outfile="$staging/paper-auditor.mjs"
+    case '{{artifact-name}}' in
+        *.tar.gz)
+            cp packages/cli/shims/paper-auditor "$staging/paper-auditor"
+            chmod +x "$staging/paper-auditor"
+            tar -czf '{{artifact-name}}' -C "$staging" paper-auditor.mjs paper-auditor
+            ;;
+        *.zip)
+            cp packages/cli/shims/paper-auditor.cmd "$staging/paper-auditor.cmd"
+            tar -a -cf '{{artifact-name}}' -C "$staging" paper-auditor.mjs paper-auditor.cmd
+            ;;
+        *)
+            echo "Unsupported artifact extension: {{artifact-name}} (expected .tar.gz or .zip)" >&2
+            exit 1
+            ;;
+    esac
