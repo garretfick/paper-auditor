@@ -10,6 +10,13 @@ on:
   schedule:
     - cron: '0 19 * * 1'
 
+# The version partial pushes a commit + tag and creates a GitHub Release;
+# the package partial uploads platform artifacts + sha256 sidecars to that
+# Release. A reusable workflow cannot exceed the caller's GITHUB_TOKEN
+# permissions, so contents: write must be granted here.
+permissions:
+  contents: write
+
 jobs:
   version:
     uses: ./.github/workflows/partial_version.yaml
