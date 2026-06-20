@@ -20,3 +20,12 @@ jobs:
   build:
     needs: version
     uses: ./.github/workflows/partial_build.yaml
+
+  package:
+    needs: [version, build]
+    uses: ./.github/workflows/partial_package.yaml
+    with:
+      version: ${{ needs.version.outputs.version }}
+      gh-release-tag: ${{ needs.version.outputs.gh-release-tag }}
+      dryrun: ${{ github.event_name == 'workflow_dispatch' && inputs.dryrun || false }}
+    secrets: inherit

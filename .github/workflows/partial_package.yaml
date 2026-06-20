@@ -1,0 +1,65 @@
+name: partial-package
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
+      gh-release-tag:
+        type: string
+        required: true
+      dryrun:
+        type: boolean
+        required: true
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: x86_64-linux
+            ext: tar.gz
+          - runner: macos-15-intel
+            target: x86_64-darwin
+            ext: tar.gz
+          - runner: macos-latest
+            target: aarch64-darwin
+            ext: tar.gz
+          - runner: windows-latest
+            target: x86_64-windows
+            ext: zip
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
+      - run: corepack enable
+
+      - uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3.1.0
+
+      - name: Package
+        shell: bash
+        run: just package "${{ inputs.version }}" "paper-auditor-${{ inputs.version }}-${{ matrix.target }}.${{ matrix.ext }}"
+
+      - name: Generate sha256 sidecar
+        shell: bash
+        run: |
+          artifact="paper-auditor-${{ inputs.version }}-${{ matrix.target }}.${{ matrix.ext }}"
+          shasum -a 256 "$artifact" > "$artifact.sha256"
+
+      - if: ${{ !inputs.dryrun }}
+        name: Upload to release
+        env:
+          GH_TOKEN: ${{ secrets.PAPER_AUDITOR_WORKFLOW_PUBLISH_TOKEN }}
+        shell: bash
+        run: |
+          artifact="paper-auditor-${{ inputs.version }}-${{ matrix.target }}.${{ matrix.ext }}"
+          gh release upload "${{ inputs.gh-release-tag }}" "$artifact" "$artifact.sha256"
