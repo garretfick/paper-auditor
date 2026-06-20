@@ -17,4 +17,9 @@ jobs:
 
       - uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3.1.0
 
+      - name: Install actionlint
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: bash <(curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) 1.7.12 && echo "${{ runner.temp }}" >> "$GITHUB_PATH"
+
       - run: just build

@@ -12,21 +12,13 @@ build: setup
     just check-workflows
 
 # Lint .github/workflows/*.yaml against the GitHub Actions schema and
-# shellcheck-style issues. Uses the actionlint docker image pinned to SHA
-# (falls back to a local actionlint binary if one is on PATH).
-# Note: actionlint validates individual workflow files; it does not catch
-# cross-workflow permission inheritance bugs between reusable callers and
-# callees. Those still surface only at dispatch time.
+# shellcheck-style issues. The devcontainer's actionlint feature installs
+# the binary in the container, and partial_build.yaml installs it on CI
+# runners. Note: actionlint validates individual workflow files; it does
+# not catch cross-workflow permission inheritance bugs between reusable
+# callers and callees. Those still surface only at dispatch time.
 check-workflows:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if command -v actionlint > /dev/null 2>&1; then
-        actionlint -color
-    else
-        docker run --rm -v "$PWD:/repo" --workdir /repo \
-            rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 \
-            -color
-    fi
+    actionlint -color
 
 # Print the next minor version computed from the latest v* git tag.
 # Bumps minor, resets patch to 0. If no v* tag exists, treats the
