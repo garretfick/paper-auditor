@@ -99,6 +99,61 @@ describe('createOllamaClaimExtractor', () => {
     expect(sliced).toBe('Transformers exhibit emergent capabilities');
   });
 
+  it('skips malformed claims and keeps the valid ones (lenient per-claim parsing)', async () => {
+    const source = 'A claim. Another claim. A third claim.';
+    const paper: Paper = {
+      source,
+      sentences: [],
+      citations: [],
+      bibliography: [],
+    };
+
+    // Two valid claims plus one with an out-of-enum claimType — the kind of
+    // imperfection real LLMs produce. The valid ones should still come through.
+    const mockResult: LanguageModelV3GenerateResult = {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            claims: [
+              {
+                quotedText: 'A claim',
+                claimType: 'Background',
+                confidence: 'high',
+                citationKeys: [],
+              },
+              {
+                quotedText: 'Another claim',
+                claimType: 'NotAValidType',
+                confidence: 'high',
+                citationKeys: [],
+              },
+              {
+                quotedText: 'A third claim',
+                claimType: 'Method',
+                confidence: 'medium',
+                citationKeys: [],
+              },
+            ],
+          }),
+        },
+      ],
+      finishReason: { unified: 'stop', raw: undefined },
+      usage: {
+        inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
+        outputTokens: { total: 10, text: 10, reasoning: 0 },
+      },
+      warnings: [],
+    };
+    const mockModel = new MockLanguageModelV3({ doGenerate: mockResult });
+
+    const extractor = createOllamaClaimExtractor({ model: mockModel });
+    const claims = await extractor(paper);
+
+    expect(claims).toHaveLength(2);
+    expect(claims.map((c) => c.type)).toEqual(['Background', 'Method']);
+  });
+
   it('throws a friendly error with Ollama-specific guidance when the LLM call fails', async () => {
     const mockModel = new MockLanguageModelV3({
       doGenerate: () => Promise.reject(new Error('connect ECONNREFUSED')),

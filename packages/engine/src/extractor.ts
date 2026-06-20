@@ -23,21 +23,21 @@ export interface Claim {
 
 export type ClaimExtractor = (paper: Paper) => Promise<Claim[]>;
 
+const claimItemSchema = z.object({
+  quotedText: z.string(),
+  claimType: z.enum([
+    'Background',
+    'Method',
+    'Result',
+    'Discussion',
+    'Navigation',
+  ]),
+  confidence: z.enum(['high', 'medium', 'low']),
+  citationKeys: z.array(z.string()),
+});
+
 const claimsResponseSchema = z.object({
-  claims: z.array(
-    z.object({
-      quotedText: z.string(),
-      claimType: z.enum([
-        'Background',
-        'Method',
-        'Result',
-        'Discussion',
-        'Navigation',
-      ]),
-      confidence: z.enum(['high', 'medium', 'low']),
-      citationKeys: z.array(z.string()),
-    }),
-  ),
+  claims: z.array(z.unknown()),
 });
 
 export interface OllamaClaimExtractorOptions {
@@ -85,7 +85,7 @@ function defaultOllamaModel(opts: OllamaClaimExtractorOptions): LanguageModel {
 }
 
 function resolveClaim(
-  raw: z.infer<typeof claimsResponseSchema>['claims'][number],
+  raw: z.infer<typeof claimItemSchema>,
   source: string,
 ): Claim {
   const offset = source.indexOf(raw.quotedText);
@@ -115,20 +115,59 @@ export function createOllamaClaimExtractor(
   const baseURL = opts.baseURL ?? 'http://localhost:11434/v1';
 
   return async (paper) => {
+    let rawJson: unknown;
     try {
       const { output } = await generateText({
         model,
-        output: Output.object({ schema: claimsResponseSchema }),
+        output: Output.json({
+          name: 'claims_response',
+          description:
+            'A JSON object with a single "claims" array. Each claim has quotedText, claimType, confidence, and citationKeys.',
+        }),
         system: SYSTEM_PROMPT,
         prompt: paper.source,
+        temperature: 0,
       });
-      return output.claims.map((raw) => resolveClaim(raw, paper.source));
+      rawJson = output;
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
       throw new Error(
         `Ollama Claim Extractor failed (${detail}). Check that Ollama is running at ${baseURL} and that the "${modelName}" model is pulled (\`ollama pull ${modelName}\`).`,
       );
     }
+
+    const envelope = claimsResponseSchema.safeParse(rawJson);
+    if (!envelope.success) {
+      const preview = JSON.stringify(rawJson).slice(0, 500);
+      throw new Error(
+        `Ollama Claim Extractor: model response is not a {"claims": [...]} object. First 500 chars: ${preview}. Zod error: ${envelope.error.message}`,
+      );
+    }
+
+    const claims: Claim[] = [];
+    let skipped = 0;
+    for (const item of envelope.data.claims) {
+      const parsed = claimItemSchema.safeParse(item);
+      if (parsed.success) {
+        claims.push(resolveClaim(parsed.data, paper.source));
+      } else {
+        skipped++;
+      }
+    }
+    if (skipped > 0) {
+      console.warn(
+        `Ollama Claim Extractor: skipped ${String(skipped)} malformed claim(s) out of ${String(envelope.data.claims.length)} returned by the model.`,
+      );
+    }
+    if (process.env.PAPER_AUDITOR_DEBUG_EXTRACTOR === '1') {
+      console.error('--- Claims extracted ---');
+      for (const c of claims) {
+        console.error(
+          `  [${c.type}/${c.confidence}] keys=${JSON.stringify(c.citationKeys)} text="${c.quotedText.slice(0, 80)}"`,
+        );
+      }
+    }
+    return claims;
   };
 }
 
