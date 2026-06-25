@@ -2,8 +2,34 @@ export interface BibEntry {
   citationKey: string;
   title: string;
   authors: string[];
+  year?: string;
   doi?: string;
   arxivId?: string;
+}
+
+/** The surname portion of a Bibliography author formatted "Last, First" (or "Last"). */
+export function lastNameOf(author: string): string {
+  const comma = author.indexOf(',');
+  return (comma >= 0 ? author.slice(0, comma) : author).trim();
+}
+
+/**
+ * Resolve an author-year Citation against the Bibliography by matching the
+ * first author's surname (case-insensitive) and the year. Deterministic and
+ * independent of any LLM — the Bibliography is never sent to a model.
+ */
+export function matchAuthorYear(
+  surname: string,
+  year: string,
+  bibliography: BibEntry[],
+): BibEntry | null {
+  const target = surname.toLowerCase();
+  for (const entry of bibliography) {
+    if (entry.year !== year) continue;
+    const first = entry.authors[0];
+    if (first && lastNameOf(first).toLowerCase() === target) return entry;
+  }
+  return null;
 }
 
 export interface OpenAlexRecord {

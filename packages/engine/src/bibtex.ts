@@ -16,10 +16,17 @@ export function parseBibliography(bibtex: string): BibEntry[] {
     const authors = Array.isArray(authorField)
       ? authorField.map(formatAuthor).filter((a) => a !== '')
       : [];
+    const year =
+      typeof f.year === 'string'
+        ? f.year.trim()
+        : typeof f.year === 'number'
+          ? String(f.year)
+          : '';
     return {
       citationKey: entry.key,
       title: typeof f.title === 'string' ? f.title : '',
       authors,
+      ...(year ? { year } : {}),
       ...(typeof f.doi === 'string' ? { doi: f.doi } : {}),
       ...(typeof f.eprint === 'string' ? { arxivId: f.eprint } : {}),
     };

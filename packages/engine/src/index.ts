@@ -1,12 +1,18 @@
 import type { Claim, ClaimExtractor } from './extractor';
+import type { CitationFilter } from './filter';
 import { loadPaper } from './paper';
-import { resolveBibEntry, type OpenAlexClient } from './resolver';
+import {
+  matchAuthorYear,
+  resolveBibEntry,
+  type OpenAlexClient,
+} from './resolver';
 
 export * from './resolver';
 export * from './bibtex';
 export * from './openalex';
 export * from './paper';
 export * from './extractor';
+export * from './filter';
 
 export type FindingType =
   | 'UnresolvedCitation'
@@ -17,6 +23,7 @@ export type FindingType =
 export interface AuditOptions {
   openAlexClient?: OpenAlexClient;
   claimExtractor?: ClaimExtractor;
+  citationFilter?: CitationFilter;
 }
 
 export interface Finding {
@@ -82,14 +89,35 @@ export async function audit(
   const bibByKey = new Map(paper.bibliography.map((e) => [e.citationKey, e]));
 
   const findings: Finding[] = [];
-  for (const citation of paper.citations) {
-    if (!bibByKey.has(citation.citationKey)) {
+
+  // High-recall candidates are narrowed by the optional LLM Citation Filter,
+  // then resolved: Pandoc Citations by Citation Key, author-year Citations by
+  // first-author surname + year. See ADR-0007.
+  const citations = opts.citationFilter
+    ? await opts.citationFilter(paper, paper.citations)
+    : paper.citations;
+
+  for (const citation of citations) {
+    const location = {
+      line: citation.span.start.line,
+      column: citation.span.start.column,
+    };
+    if (citation.syntax === 'author-year') {
+      const surname = citation.surname ?? '';
+      const year = citation.year ?? '';
+      if (!matchAuthorYear(surname, year, paper.bibliography)) {
+        findings.push({
+          type: 'UnresolvedCitation',
+          location,
+          subject: citation.rawText ?? `(${surname} ${year})`,
+          detail: `Author-year Citation "${citation.rawText ?? `${surname} ${year}`}" has no matching Bibliography entry (no Source with first author "${surname}" and year ${year})`,
+          confidence: 'high',
+        });
+      }
+    } else if (!bibByKey.has(citation.citationKey)) {
       findings.push({
         type: 'UnresolvedCitation',
-        location: {
-          line: citation.span.start.line,
-          column: citation.span.start.column,
-        },
+        location,
         subject: `[@${citation.citationKey}]`,
         detail: `Citation Key "${citation.citationKey}" not found in Bibliography`,
         confidence: 'high',

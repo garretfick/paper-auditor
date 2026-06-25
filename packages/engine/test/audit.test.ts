@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import path from 'node:path';
 import url from 'node:url';
-import { audit, stubClaimExtractor, type OpenAlexClient } from '../src';
+import {
+  audit,
+  stubClaimExtractor,
+  type CitationFilter,
+  type OpenAlexClient,
+} from '../src';
 
 const here = path.dirname(url.fileURLToPath(import.meta.url));
 const fixturesDir = path.join(here, 'fixtures');
@@ -115,6 +120,42 @@ describe('audit', () => {
     expect(result.findings.some((f) => f.type === 'UnverifiableSource')).toBe(
       true,
     );
+  });
+
+  it('resolves author-year Citations by surname+year and flags only the unmatched one', async () => {
+    const result = await audit(
+      path.join(fixturesDir, 'author-year.md'),
+      path.join(fixturesDir, 'author-year.bib'),
+    );
+
+    // (Wei, 2022) and Smith et al. (2019) resolve against the Bibliography;
+    // (Nguyen, 1999) has no matching Source.
+    expect(result.findings).toHaveLength(1);
+    const finding = result.findings[0]!;
+    expect(finding.type).toBe('UnresolvedCitation');
+    expect(finding.subject).toBe('(Nguyen, 1999)');
+  });
+
+  it('lets a Citation Filter drop a citation-shaped false positive before resolution', async () => {
+    const paperPath = path.join(fixturesDir, 'crossref.md');
+    const bibPath = path.join(fixturesDir, 'crossref.bib');
+
+    // Without a Filter, the pandoc-crossref [@fig:overview] is mistaken for a
+    // Citation and surfaces as an UnresolvedCitation.
+    const unfiltered = await audit(paperPath, bibPath);
+    expect(
+      unfiltered.findings.some(
+        (f) => f.type === 'UnresolvedCitation' && f.subject.includes('fig'),
+      ),
+    ).toBe(true);
+
+    // A Filter that recognizes the cross-reference removes it; wei2022 resolves.
+    const dropCrossRefs: CitationFilter = (_paper, candidates) =>
+      Promise.resolve(candidates.filter((c) => c.citationKey !== 'fig'));
+    const filtered = await audit(paperPath, bibPath, {
+      citationFilter: dropCrossRefs,
+    });
+    expect(filtered.findings).toHaveLength(0);
   });
 
   it('emits UncitedClaim Findings via the injected ClaimExtractor', async () => {

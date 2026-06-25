@@ -35,8 +35,12 @@ The LLM-driven pass that reads the **Paper**'s text and emits **Claims** — gro
 _Avoid_: Classifier (the Extractor does more than classify — it owns the grouping decision too), sentence tagger.
 
 **Citation**:
-The in-text marker in the **Paper** that attaches a **Source** to a **Claim** (e.g. `[@smith2020]`). Contains a **Citation Key**.
+The in-text marker in the **Paper** that attaches a **Source** to a **Claim**. Written either in Pandoc form (`[@smith2020]`, carrying a **Citation Key**) or in author-year form (`(Smith, 2020)`, `Smith et al. (2019)`, carrying a surname + year). Author-year **Citations** are recognized by a high-recall candidate pass, narrowed by the **Citation Filter**, and paired to the **Bibliography** by surname + year. See ADR-0007.
 _Avoid_: Cite, ref.
+
+**Citation Filter**:
+The optional LLM pass that narrows the high-recall set of candidate **Citations** down to genuine bibliographic **Citations**, discarding citation-shaped false positives (pandoc-crossref refs like `[@fig:1]`, bare years, capitalized-word-plus-number). A pure discriminator: it never sees the **Bibliography** and never normalizes a **Citation Key** — surname + year pairing stays deterministic. See ADR-0007.
+_Avoid_: Classifier, validator.
 
 **Source**:
 The cited work itself — the paper, book, or dataset that a **Citation** points to. The **Bibliography** describes it; **Source Resolution** verifies it exists in the world.
@@ -56,7 +60,7 @@ _Avoid_: Issue, problem, error, warning.
 
 **Source Resolution**:
 The two-phase check that verifies a **Citation** points to a real **Source**.
-Phase 1 (local): does the **Citation Key** appear in the **Bibliography**? — if not, emit `UnresolvedCitation`.
+Phase 1 (local): does the **Citation** resolve against the **Bibliography**? For a Pandoc **Citation**, does its **Citation Key** appear in the **Bibliography**; for an author-year **Citation**, does an entry match by first-author surname + year? — if not, emit `UnresolvedCitation`.
 Phase 2 (world): does OpenAlex return a record matching the **Bibliography** entry's metadata? — mismatch emits `FabricatedSource`; no match at all with no DOI/arxiv emits `UnverifiableSource`.
 _Avoid_: Lookup, verification, validation.
 
@@ -89,4 +93,5 @@ _Avoid_: Lookup, verification, validation.
 ## Flagged ambiguities
 
 - "Reference" is deliberately not a domain term — it collides with programming meaning. Use **Source** for the cited work.
+- The **Claim Extractor** and the **Citation** recognizer once disagreed silently: the Extractor read author-year prose, but the Resolver's regex only understood Pandoc `[@key]`, so a **Paper** full of author-year **Citations** drew zero `UnresolvedCitation` **Findings**. That asymmetry is resolved — the **Citation** recognizer now emits author-year candidates, the **Citation Filter** narrows them, and the **Resolver** pairs them by surname + year. See ADR-0007 (closes #37).
 - **Sentence** vs **Claim** is a deliberate split, not an accident. An earlier draft of this domain model used the **Sentence** as the audit unit; we widened it to **Claim** because compound sentences carry multiple distinct assertions, single assertions span multiple sentences, and shared-context lists fold multiple sibling assertions into one syntactic structure. **Sentence** remains as a structural primitive and **Finding**-location anchor; it is never the unit of audit. See ADR-0002.

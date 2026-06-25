@@ -50,5 +50,40 @@ describe('loadPaper', () => {
       citation.span.end.offset,
     );
     expect(sliced).toBe('@nonexistent');
+    expect(citation.syntax).toBe('pandoc');
+  });
+
+  it('extracts author-year Citations (parenthetical and narrative) as candidates', async () => {
+    const paper = await loadPaper(
+      path.join(fixturesDir, 'author-year.md'),
+      path.join(fixturesDir, 'author-year.bib'),
+    );
+
+    const authorYear = paper.citations.filter(
+      (c) => c.syntax === 'author-year',
+    );
+    expect(authorYear).toHaveLength(3);
+
+    const bySurname = new Map(authorYear.map((c) => [c.surname, c]));
+    expect(bySurname.get('Wei')?.year).toBe('2022');
+    expect(bySurname.get('Smith')?.year).toBe('2019');
+    expect(bySurname.get('Nguyen')?.year).toBe('1999');
+
+    // Spans round-trip back to the verbatim source text.
+    for (const c of authorYear) {
+      const sliced = paper.source.slice(c.span.start.offset, c.span.end.offset);
+      expect(sliced).toBe(c.rawText);
+    }
+    expect(bySurname.get('Wei')?.rawText).toBe('(Wei, 2022)');
+    expect(bySurname.get('Smith')?.rawText).toBe('Smith et al. (2019)');
+  });
+
+  it('does not treat a bare parenthetical year as a Citation', async () => {
+    const paper = await loadPaper(
+      path.join(fixturesDir, 'two-sentences.md'),
+      path.join(fixturesDir, 'two-sentences.bib'),
+    );
+
+    expect(paper.citations).toHaveLength(0);
   });
 });

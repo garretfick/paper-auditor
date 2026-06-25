@@ -1,9 +1,11 @@
 import {
   audit,
   createFileCache,
+  createOllamaCitationFilter,
   createOllamaClaimExtractor,
   createOpenAlexClient,
   renderReport,
+  type CitationFilter,
   type ClaimExtractor,
   type OpenAlexClient,
   type ResponseCache,
@@ -17,6 +19,7 @@ export interface RunCliOptions {
   cwd?: string;
   openAlexClient?: OpenAlexClient;
   claimExtractor?: ClaimExtractor;
+  citationFilter?: CitationFilter;
   cachePath?: string;
 }
 
@@ -80,9 +83,16 @@ export async function runCli(
         ...(modelName ? { modelName } : {}),
         ...(baseURL ? { baseURL } : {}),
       });
+    const citationFilter =
+      opts.citationFilter ??
+      createOllamaCitationFilter({
+        ...(modelName ? { modelName } : {}),
+        ...(baseURL ? { baseURL } : {}),
+      });
     const result = await audit(paperPath, bibPath, {
       openAlexClient,
       claimExtractor,
+      citationFilter,
     });
     const report = renderReport(result.findings);
     await writeFile(path.join(cwd, 'audit-report.md'), report, 'utf8');

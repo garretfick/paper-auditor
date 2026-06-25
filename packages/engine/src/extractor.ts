@@ -180,7 +180,8 @@ export const stubClaimExtractor: ClaimExtractor = (paper) => {
             c.span.start.offset >= sentence.span.start.offset &&
             c.span.end.offset <= sentence.span.end.offset,
         )
-        .map((c) => c.citationKey);
+        .map((c) => c.citationKey)
+        .filter((key) => key.length > 0);
       return {
         type: 'Background' as const,
         confidence: 'low' as const,
