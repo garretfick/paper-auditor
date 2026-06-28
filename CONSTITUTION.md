@@ -82,20 +82,4 @@ _Rationale:_ A green build is only a meaningful contract if it is also a demandi
 
 These are deliberately **not** constitutional, recorded here so their absence is understood as a decision rather than an oversight:
 
-- **Paper privacy / local-only processing.** Running the LLM locally via Ollama is an ADR-level choice (ADR-0004), _not_ a constitutional guarantee. Nothing in this constitution forbids a future feature from sending the **Paper** to a cloud service. If local-only processing should become a hard guarantee, that is a future amendment (and a MAJOR bump).
-
----
-
-## Governance
-
-**Authority.** This constitution supersedes ad-hoc convention. Where a spec, ADR, or change conflicts with a principle here, the principle wins until the constitution is amended.
-
-**Amendment.** Principles are added, changed, or removed by a normal change to this file, accompanied by an ADR when the amendment reflects an architecturally significant decision (Principle VIII). Each amendment updates the version and the "Last amended" date.
-
-**Versioning.** The constitution is versioned semantically:
-
-- **MAJOR** — a backward-incompatible change: a principle removed or redefined in a way that invalidates existing practice (e.g. making privacy a hard guarantee, or reversing the YAGNI stance).
-- **MINOR** — a new principle, or materially expanded guidance within an existing one.
-- **PATCH** — clarifications, wording, and typo fixes that do not change what is required.
-
-**Compliance.** Code review is the compliance checkpoint: a reviewer may block a change for violating a principle here, and SHOULD cite the principle by number. Because the build is the arbiter (Principle XI), principles that can be mechanically enforced SHOULD migrate into automated gates over time rather than living only as review-time judgment.
+- **Paper privacy / local-only processing.** Running the LLM locally via Ollama is an ADR-level choice (ADR-0004), _not_ a constitutional guarantee. Nothing in this constitution forbids a future feature from sending the **Paper** to a cloud service. If local-only processing should become a hard guarantee, that is a future amendment.
