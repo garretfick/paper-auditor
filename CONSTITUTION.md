@@ -14,7 +14,7 @@ The domain vocabulary used below (**Paper**, **Claim**, **Citation**, **Source**
 
 Every **Finding** MUST carry a `Confidence`, and the audit MUST NOT silently suppress a candidate Finding. Higher-severity Finding types (notably `FabricatedSource`) MUST be held to a stricter evidentiary bar than softer ones before they are emitted at high Confidence — but uncertainty is expressed by _lowering Confidence_, never by hiding the Finding.
 
-_Rationale:_ An auditor's only currency is the **Author**'s trust. A false `FabricatedSource` is the most damaging thing the tool can do, yet silently dropping a real one defeats its purpose. Tiering by Confidence lets the audit speak about everything it suspects while reserving its loudest signal for what it can stand behind.
+_Rationale:_ The worst outcome the audit can produce is a **false negative** — a fabricated **Source** it fails to flag, which then sails through to submission. That is the exact failure the tool exists to prevent. A false positive is far less costly: flagging a genuine Source merely sends the **Author** to investigate, and they recover. So the audit MUST NOT withhold a suspicion to look more sure of itself — it surfaces everything it suspects, expresses doubt by _lowering_ `Confidence`, and reserves high Confidence for what it can stand behind.
 
 ### II. The Domain Vocabulary Is Law
 
