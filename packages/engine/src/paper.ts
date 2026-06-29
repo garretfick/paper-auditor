@@ -56,32 +56,94 @@ export async function loadPaper(
   return {
     source,
     sentences: extractSentences(source),
-    citations: extractCitations(source),
+    citations: extractCitations(source, bibliography),
     bibliography,
   };
 }
 
-function extractCitations(source: string): Citation[] {
+const PANDOC_KEY_RE = /@(\w+)/g;
+const AUTHOR_YEAR_RE =
+  /^([A-Z][\w]*(?:\s+[A-Z][\w]*)*)(?:\s+et\s+al\.?)?\s+(\d{4})$/;
+
+function extractCitations(
+  source: string,
+  bibliography: BibEntry[],
+): Citation[] {
   const citations: Citation[] = [];
   for (const bracket of source.matchAll(/\[([^\]]+)\]/g)) {
     const inside = bracket[1];
     if (!inside) continue;
-    const insideStart = bracket.index + 1;
-    for (const keyMatch of inside.matchAll(/@(\w+)/g)) {
-      const key = keyMatch[1];
-      if (!key) continue;
-      const atOffset = insideStart + keyMatch.index;
-      const endOffset = atOffset + keyMatch[0].length;
-      citations.push({
-        citationKey: key,
-        span: {
-          start: positionAt(source, atOffset),
-          end: positionAt(source, endOffset),
-        },
-      });
+
+    const pandoc = extractPandocCitations(source, bracket.index, inside);
+    if (pandoc.length > 0) {
+      citations.push(...pandoc);
+      continue;
     }
+    citations.push(
+      ...extractAuthorYearCitations(
+        source,
+        bracket.index,
+        bracket[0].length,
+        inside,
+        bibliography,
+      ),
+    );
   }
   return citations;
+}
+
+function extractPandocCitations(
+  source: string,
+  bracketStart: number,
+  inside: string,
+): Citation[] {
+  const insideStart = bracketStart + 1;
+  const out: Citation[] = [];
+  for (const keyMatch of inside.matchAll(PANDOC_KEY_RE)) {
+    const key = keyMatch[1];
+    if (!key) continue;
+    const atOffset = insideStart + keyMatch.index;
+    const endOffset = atOffset + keyMatch[0].length;
+    out.push({
+      citationKey: key,
+      span: {
+        start: positionAt(source, atOffset),
+        end: positionAt(source, endOffset),
+      },
+    });
+  }
+  return out;
+}
+
+function extractAuthorYearCitations(
+  source: string,
+  bracketStart: number,
+  bracketLength: number,
+  inside: string,
+  bibliography: BibEntry[],
+): Citation[] {
+  const bracketSpan: TextSpan = {
+    start: positionAt(source, bracketStart),
+    end: positionAt(source, bracketStart + bracketLength),
+  };
+  const out: Citation[] = [];
+  for (const part of inside.split(';')) {
+    const trimmed = part.trim();
+    const ay = AUTHOR_YEAR_RE.exec(trimmed);
+    if (!ay) continue;
+    const [, authorMatch, yearMatch] = ay;
+    if (!authorMatch || !yearMatch) continue;
+    const author = authorMatch;
+    const year = Number(yearMatch);
+    const entry = bibliography.find(
+      (e) => e.year === year && firstAuthorLastName(e) === author,
+    );
+    out.push({
+      citationKey: entry ? entry.citationKey : trimmed,
+      span: bracketSpan,
+    });
+  }
+  return out;
 }
 
 function extractSentences(source: string): Sentence[] {
@@ -102,6 +164,12 @@ function extractSentences(source: string): Sentence[] {
     });
   }
   return result;
+}
+
+function firstAuthorLastName(entry: BibEntry): string {
+  const first = entry.authors[0] ?? '';
+  const commaIdx = first.indexOf(',');
+  return commaIdx >= 0 ? first.slice(0, commaIdx) : first;
 }
 
 export function positionAt(source: string, offset: number): Position {
