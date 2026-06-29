@@ -51,4 +51,68 @@ describe('loadPaper', () => {
     );
     expect(sliced).toBe('@nonexistent');
   });
+
+  it('matches an author-year Citation like [IEC 2013] to the Bibliography entry whose first author and year align', async () => {
+    const paper = await loadPaper(
+      path.join(fixturesDir, 'author-year-single.md'),
+      path.join(fixturesDir, 'author-year-single.bib'),
+    );
+
+    expect(paper.citations).toHaveLength(1);
+    expect(paper.citations[0]!.citationKey).toBe('iec61131');
+  });
+
+  it('matches an "et al." author-year Citation on the first-author lastName + year', async () => {
+    const paper = await loadPaper(
+      path.join(fixturesDir, 'author-year-etal.md'),
+      path.join(fixturesDir, 'author-year-etal.bib'),
+    );
+
+    expect(paper.citations).toHaveLength(1);
+    expect(paper.citations[0]!.citationKey).toBe('tisserant2007');
+  });
+
+  it('matches a multi-word author-year Citation like [Microsoft Security 2023]', async () => {
+    const paper = await loadPaper(
+      path.join(fixturesDir, 'author-year-multiword.md'),
+      path.join(fixturesDir, 'author-year-multiword.bib'),
+    );
+
+    expect(paper.citations).toHaveLength(1);
+    expect(paper.citations[0]!.citationKey).toBe('mssecurity2023');
+  });
+
+  it('emits one Citation per semicolon-separated author-year inside one bracket', async () => {
+    const paper = await loadPaper(
+      path.join(fixturesDir, 'author-year-semicolon.md'),
+      path.join(fixturesDir, 'author-year-semicolon.bib'),
+    );
+
+    expect(paper.citations).toHaveLength(2);
+    expect(paper.citations.map((c) => c.citationKey)).toEqual([
+      'falliere2011',
+      'langner2013',
+    ]);
+  });
+
+  it('extracts both Pandoc [@key] and author-year [Author Year] Citations from the same Paper', async () => {
+    const paper = await loadPaper(
+      path.join(fixturesDir, 'mixed-citation-styles.md'),
+      path.join(fixturesDir, 'mixed-citation-styles.bib'),
+    );
+
+    expect(paper.citations.map((c) => c.citationKey).sort()).toEqual([
+      'iec61131',
+      'wei2022',
+    ]);
+  });
+
+  it('does not emit Citations from bracketed text that lacks a Pandoc key or a 4-digit year (e.g. [See Section 3], [1, 2], [TODO])', async () => {
+    const paper = await loadPaper(
+      path.join(fixturesDir, 'bracket-false-positives.md'),
+      path.join(fixturesDir, 'bracket-false-positives.bib'),
+    );
+
+    expect(paper.citations).toHaveLength(0);
+  });
 });

@@ -18,6 +18,17 @@ describe('audit', () => {
     expect(result.findings[0]!.subject).toContain('nonexistent');
   });
 
+  it('emits one UnresolvedCitation Finding for an author-year Citation with no matching Bibliography entry', async () => {
+    const result = await audit(
+      path.join(fixturesDir, 'author-year-unresolved.md'),
+      path.join(fixturesDir, 'author-year-unresolved.bib'),
+    );
+
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]!.type).toBe('UnresolvedCitation');
+    expect(result.findings[0]!.subject).toContain('Ghost 1999');
+  });
+
   it('emits zero Findings when every Citation Key resolves in the Bibliography', async () => {
     const result = await audit(
       path.join(fixturesDir, 'all-resolved.md'),
