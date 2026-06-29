@@ -32,12 +32,16 @@ version num:
         node -e 'const fs=require("fs"); const p=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); p.version=process.argv[2]; fs.writeFileSync(process.argv[1], JSON.stringify(p, null, 2) + "\n");' "$pkg" "{{num}}"
     done
 
-# Commit the staged version bump under <name>/<email> and create the v<num> tag.
+# Commit the staged version bump under <name>/<email> and create the
+# annotated v<num> tag. Annotated tags (-a -m) are required so
+# `git push --follow-tags` ships them alongside the commit; lightweight
+# tags are silently dropped.
 # Run only after `just version <num>` has updated the package.json files.
 commit-version name email num:
     git -c user.name="{{name}}" -c user.email="{{email}}" \
         commit -am "Release v{{num}}"
-    git tag "v{{num}}"
+    git -c user.name="{{name}}" -c user.email="{{email}}" \
+        tag -a "v{{num}}" -m "v{{num}}"
 
 # Bundle the CLI + runtime deps into <artifact-name>, with <version> baked in.
 # Extension drives format: .tar.gz uses gzip + Unix shim, .zip uses zip + cmd shim.
