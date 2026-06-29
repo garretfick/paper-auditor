@@ -58,7 +58,7 @@ jobs:
       - if: ${{ !inputs.dryrun }}
         name: Upload to release
         env:
-          GH_TOKEN: ${{ secrets.PAPER_AUDITOR_WORKFLOW_PUBLISH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           artifact="paper-auditor-${{ inputs.version }}-${{ matrix.target }}.${{ matrix.ext }}"
