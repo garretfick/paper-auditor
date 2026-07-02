@@ -12,7 +12,8 @@ export type FindingType =
   | 'UnresolvedCitation'
   | 'FabricatedSource'
   | 'UnverifiableSource'
-  | 'UncitedClaim';
+  | 'UncitedClaim'
+  | 'NoCitationsDetected';
 
 export interface AuditOptions {
   openAlexClient?: OpenAlexClient;
@@ -82,6 +83,18 @@ export async function audit(
   const bibByKey = new Map(paper.bibliography.map((e) => [e.citationKey, e]));
 
   const findings: Finding[] = [];
+
+  if (paper.citations.length === 0 && paper.bibliography.length === 0) {
+    findings.push({
+      type: 'NoCitationsDetected',
+      location: { line: 0, column: 0 },
+      subject: paperPath,
+      detail:
+        'No Citations and no Bibliography were detected — the audit ran Claim-coverage only. Did you mean to supply a .bib file, or is the Paper using a citation syntax the tool does not parse?',
+      confidence: 'high',
+    });
+  }
+
   for (const citation of paper.citations) {
     if (!bibByKey.has(citation.citationKey)) {
       findings.push({
