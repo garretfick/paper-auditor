@@ -145,11 +145,18 @@ export function createOllamaClaimExtractor(
     }
 
     const claims: Claim[] = [];
+    const seen = new Set<string>();
     let skipped = 0;
     for (const item of envelope.data.claims) {
       const parsed = claimItemSchema.safeParse(item);
       if (parsed.success) {
-        claims.push(resolveClaim(parsed.data, paper.source));
+        const claim = resolveClaim(parsed.data, paper.source);
+        const dedupKey = `${claim.quotedText} ${String(
+          claim.spans[0]?.start.offset ?? -1,
+        )}`;
+        if (seen.has(dedupKey)) continue;
+        seen.add(dedupKey);
+        claims.push(claim);
       } else {
         skipped++;
       }
