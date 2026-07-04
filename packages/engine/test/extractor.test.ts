@@ -154,6 +154,93 @@ describe('createOllamaClaimExtractor', () => {
     expect(claims.map((c) => c.type)).toEqual(['Background', 'Method']);
   });
 
+  it('deduplicates Claims the model emits twice (same quotedText)', async () => {
+    const source = 'The standard defines five programming languages.\n';
+    const paper: Paper = {
+      source,
+      sentences: [],
+      citations: [],
+      bibliography: [],
+    };
+
+    const duplicated = {
+      quotedText: 'The standard defines five programming languages',
+      claimType: 'Background',
+      confidence: 'high',
+      citationKeys: [],
+    };
+    const mockResult: LanguageModelV3GenerateResult = {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({ claims: [duplicated, duplicated] }),
+        },
+      ],
+      finishReason: { unified: 'stop', raw: undefined },
+      usage: {
+        inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
+        outputTokens: { total: 10, text: 10, reasoning: 0 },
+      },
+      warnings: [],
+    };
+    const mockModel = new MockLanguageModelV3({ doGenerate: mockResult });
+
+    const extractor = createOllamaClaimExtractor({ model: mockModel });
+    const claims = await extractor(paper);
+
+    expect(claims).toHaveLength(1);
+    expect(claims[0]!.quotedText).toBe(
+      'The standard defines five programming languages',
+    );
+  });
+
+  it('preserves distinct Claims in order (dedup only collapses true duplicates)', async () => {
+    const source = 'First claim here. Second claim here. Third claim here.\n';
+    const paper: Paper = {
+      source,
+      sentences: [],
+      citations: [],
+      bibliography: [],
+    };
+
+    const mk = (quotedText: string) => ({
+      quotedText,
+      claimType: 'Background' as const,
+      confidence: 'high' as const,
+      citationKeys: [],
+    });
+    const mockResult: LanguageModelV3GenerateResult = {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            claims: [
+              mk('First claim here'),
+              mk('Second claim here'),
+              mk('Third claim here'),
+            ],
+          }),
+        },
+      ],
+      finishReason: { unified: 'stop', raw: undefined },
+      usage: {
+        inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
+        outputTokens: { total: 10, text: 10, reasoning: 0 },
+      },
+      warnings: [],
+    };
+    const mockModel = new MockLanguageModelV3({ doGenerate: mockResult });
+
+    const extractor = createOllamaClaimExtractor({ model: mockModel });
+    const claims = await extractor(paper);
+
+    expect(claims.map((c) => c.quotedText)).toEqual([
+      'First claim here',
+      'Second claim here',
+      'Third claim here',
+    ]);
+  });
+
   it('throws a friendly error with Ollama-specific guidance when the LLM call fails', async () => {
     const mockModel = new MockLanguageModelV3({
       doGenerate: () => Promise.reject(new Error('connect ECONNREFUSED')),
