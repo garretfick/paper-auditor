@@ -45,6 +45,7 @@ export interface OllamaClaimExtractorOptions {
   modelName?: string;
   baseURL?: string;
   apiKey?: string;
+  fetch?: typeof fetch;
 }
 
 const SYSTEM_PROMPT = `You are an academic paper auditor. Extract every claim from the paper text.
@@ -107,12 +108,49 @@ function resolveClaim(
   };
 }
 
+function diagnoseFailure(
+  detail: string,
+  baseURL: string,
+  modelName: string,
+  models: string[] | null,
+): string {
+  const head = `Ollama Claim Extractor failed (${detail}).`;
+  if (models === null) {
+    return `${head} Check that Ollama is running at ${baseURL} and that the "${modelName}" model is pulled (\`ollama pull ${modelName}\`).`;
+  }
+  const list = models.length > 0 ? models.join(', ') : '(none)';
+  const inventory = `The Ollama at ${baseURL} has these models pulled: ${list}.`;
+  if (!models.includes(modelName)) {
+    return `${head} ${inventory} The configured "${modelName}" model is not in that list — run \`ollama pull ${modelName}\`, or configure one of the listed models. If \`ollama list\` on the command line does show "${modelName}", a different Ollama process is likely bound to this port (a common cause is a Docker container with an IPv6 wildcard binding hijacking localhost); point the auditor at http://127.0.0.1:11434/v1 to force IPv4.`;
+  }
+  return `${head} ${inventory}`;
+}
+
+async function pulledModelNames(
+  baseURL: string,
+  fetchImpl: typeof fetch,
+): Promise<string[] | null> {
+  const tagsURL = `${baseURL.replace(/\/v1\/?$/, '')}/api/tags`;
+  try {
+    const res = await fetchImpl(tagsURL);
+    if (!res.ok) return null;
+    const body = (await res.json()) as { models?: { name?: string }[] };
+    const names = (body.models ?? [])
+      .map((m) => m.name)
+      .filter((n): n is string => typeof n === 'string');
+    return names;
+  } catch {
+    return null;
+  }
+}
+
 export function createOllamaClaimExtractor(
   opts: OllamaClaimExtractorOptions = {},
 ): ClaimExtractor {
   const model = opts.model ?? defaultOllamaModel(opts);
   const modelName = opts.modelName ?? 'llama3.1:8b';
   const baseURL = opts.baseURL ?? 'http://localhost:11434/v1';
+  const fetchImpl = opts.fetch ?? fetch;
 
   return async (paper) => {
     let rawJson: unknown;
@@ -131,9 +169,8 @@ export function createOllamaClaimExtractor(
       rawJson = output;
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
-      throw new Error(
-        `Ollama Claim Extractor failed (${detail}). Check that Ollama is running at ${baseURL} and that the "${modelName}" model is pulled (\`ollama pull ${modelName}\`).`,
-      );
+      const models = await pulledModelNames(baseURL, fetchImpl);
+      throw new Error(diagnoseFailure(detail, baseURL, modelName, models));
     }
 
     const envelope = claimsResponseSchema.safeParse(rawJson);

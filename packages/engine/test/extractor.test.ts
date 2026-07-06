@@ -154,12 +154,15 @@ describe('createOllamaClaimExtractor', () => {
     expect(claims.map((c) => c.type)).toEqual(['Background', 'Method']);
   });
 
-  it('throws a friendly error with Ollama-specific guidance when the LLM call fails', async () => {
+  it('falls back to generic Ollama guidance when the model inventory is also unreachable', async () => {
     const mockModel = new MockLanguageModelV3({
       doGenerate: () => Promise.reject(new Error('connect ECONNREFUSED')),
     });
 
-    const extractor = createOllamaClaimExtractor({ model: mockModel });
+    const extractor = createOllamaClaimExtractor({
+      model: mockModel,
+      fetch: () => Promise.reject(new Error('connect ECONNREFUSED')),
+    });
     const paper: Paper = {
       source: 'A claim.',
       sentences: [],
@@ -167,6 +170,89 @@ describe('createOllamaClaimExtractor', () => {
       bibliography: [],
     };
 
-    await expect(extractor(paper)).rejects.toThrow(/Ollama/i);
+    const err = (await extractor(paper).catch((e: unknown) => e)) as Error;
+    expect(err.message).toMatch(/Ollama Claim Extractor failed/);
+    expect(err.message).toMatch(/http:\/\/localhost:11434\/v1/);
+    expect(err.message).toMatch(/ollama pull llama3\.1:8b/);
+  });
+
+  it('lists the models the Ollama at the base URL actually has pulled when the LLM call fails', async () => {
+    const mockModel = new MockLanguageModelV3({
+      doGenerate: () => Promise.reject(new Error('No object generated')),
+    });
+
+    const tagsFetch: typeof fetch = (input) => {
+      expect(input).toBe('http://localhost:11434/api/tags');
+      return Promise.resolve(
+        Response.json({
+          models: [{ name: 'llama3.1:8b' }, { name: 'mistral:latest' }],
+        }),
+      );
+    };
+
+    const extractor = createOllamaClaimExtractor({
+      model: mockModel,
+      fetch: tagsFetch,
+    });
+    const paper: Paper = {
+      source: 'A claim.',
+      sentences: [],
+      citations: [],
+      bibliography: [],
+    };
+
+    await expect(extractor(paper)).rejects.toThrow(
+      /llama3\.1:8b.*mistral:latest/s,
+    );
+  });
+
+  it('flags a missing configured model and the port-hijack possibility when the model is not in the pulled list', async () => {
+    const mockModel = new MockLanguageModelV3({
+      doGenerate: () => Promise.reject(new Error('No object generated')),
+    });
+
+    const tagsFetch: typeof fetch = () =>
+      Promise.resolve(Response.json({ models: [{ name: 'mistral:latest' }] }));
+
+    const extractor = createOllamaClaimExtractor({
+      model: mockModel,
+      modelName: 'llama3.1:8b',
+      fetch: tagsFetch,
+    });
+    const paper: Paper = {
+      source: 'A claim.',
+      sentences: [],
+      citations: [],
+      bibliography: [],
+    };
+
+    const err = (await extractor(paper).catch((e: unknown) => e)) as Error;
+    expect(err.message).toMatch(/ollama pull llama3\.1:8b/);
+    expect(err.message).toMatch(/127\.0\.0\.1:11434/);
+  });
+
+  it('does not advise pulling the model when it is already in the pulled list', async () => {
+    const mockModel = new MockLanguageModelV3({
+      doGenerate: () => Promise.reject(new Error('No object generated')),
+    });
+
+    const tagsFetch: typeof fetch = () =>
+      Promise.resolve(Response.json({ models: [{ name: 'llama3.1:8b' }] }));
+
+    const extractor = createOllamaClaimExtractor({
+      model: mockModel,
+      modelName: 'llama3.1:8b',
+      fetch: tagsFetch,
+    });
+    const paper: Paper = {
+      source: 'A claim.',
+      sentences: [],
+      citations: [],
+      bibliography: [],
+    };
+
+    const err = (await extractor(paper).catch((e: unknown) => e)) as Error;
+    expect(err.message).toMatch(/llama3\.1:8b/);
+    expect(err.message).not.toMatch(/ollama pull/);
   });
 });
