@@ -1,7 +1,7 @@
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { generateText, Output, type LanguageModel } from 'ai';
 import { z } from 'zod';
-import type { Paper, TextSpan } from './paper';
+import type { Paper, Sentence, TextSpan } from './paper';
 import { positionAt } from './paper';
 
 export type ClaimType =
@@ -84,20 +84,62 @@ function defaultOllamaModel(opts: OllamaClaimExtractorOptions): LanguageModel {
   return provider(opts.modelName ?? 'llama3.1:8b');
 }
 
+function tokenize(text: string): string[] {
+  return text.toLowerCase().match(/\w+/g) ?? [];
+}
+
+// Fraction of quotedText's tokens that also appear in the sentence.
+function tokenOverlap(quotedText: string, sentenceText: string): number {
+  const quoted = tokenize(quotedText);
+  if (quoted.length === 0) return 0;
+  const inSentence = new Set(tokenize(sentenceText));
+  const shared = quoted.filter((t) => inSentence.has(t)).length;
+  return shared / quoted.length;
+}
+
+const OVERLAP_THRESHOLD = 0.5;
+
+function bestOverlappingSentence(
+  quotedText: string,
+  sentences: Sentence[],
+): Sentence | null {
+  let best: Sentence | null = null;
+  let bestScore = OVERLAP_THRESHOLD;
+  for (const sentence of sentences) {
+    const score = tokenOverlap(quotedText, sentence.text);
+    if (score >= bestScore) {
+      best = sentence;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
 function resolveClaim(
   raw: z.infer<typeof claimItemSchema>,
-  source: string,
+  paper: Paper,
 ): Claim {
+  const source = paper.source;
   const offset = source.indexOf(raw.quotedText);
-  const spans: TextSpan[] =
-    offset === -1
-      ? []
-      : [
-          {
-            start: positionAt(source, offset),
-            end: positionAt(source, offset + raw.quotedText.length),
-          },
-        ];
+  let spans: TextSpan[];
+  if (offset !== -1) {
+    spans = [
+      {
+        start: positionAt(source, offset),
+        end: positionAt(source, offset + raw.quotedText.length),
+      },
+    ];
+  } else {
+    const fallback = bestOverlappingSentence(raw.quotedText, paper.sentences);
+    if (fallback) {
+      spans = [fallback.span];
+    } else {
+      spans = [];
+      console.warn(
+        `Ollama Claim Extractor: could not locate claim text in the paper (no verbatim or overlapping-sentence match); span left empty for: "${raw.quotedText}"`,
+      );
+    }
+  }
   return {
     type: raw.claimType,
     confidence: raw.confidence,
@@ -150,7 +192,7 @@ export function createOllamaClaimExtractor(
     for (const item of envelope.data.claims) {
       const parsed = claimItemSchema.safeParse(item);
       if (parsed.success) {
-        const claim = resolveClaim(parsed.data, paper.source);
+        const claim = resolveClaim(parsed.data, paper);
         const dedupKey = `${claim.quotedText} ${String(
           claim.spans[0]?.start.offset ?? -1,
         )}`;
