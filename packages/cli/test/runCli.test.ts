@@ -68,13 +68,25 @@ describe('runCli', () => {
     const workDir = await mkdtemp(path.join(tmpdir(), 'pa-runcli-'));
     const cachePath = path.join(workDir, 'openalex.json');
 
+    // Stub fetch so the default OpenAlex client never touches the network:
+    // an empty result set means the (DOI-less) bib entry is unverifiable.
+    const stubFetch = (async () =>
+      new Response(JSON.stringify({ results: [] }), {
+        status: 200,
+      })) as typeof fetch;
+
     const exitCode = await runCli(
       [
         path.join(engineFixturesDir, 'unresolved-citation.md'),
         path.join(engineFixturesDir, 'unresolved-citation.bib'),
         '--no-cache',
       ],
-      { cwd: workDir, cachePath, claimExtractor: stubClaimExtractor },
+      {
+        cwd: workDir,
+        cachePath,
+        claimExtractor: stubClaimExtractor,
+        fetch: stubFetch,
+      },
     );
 
     expect(exitCode).toBe(1);

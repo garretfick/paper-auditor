@@ -49,16 +49,10 @@ jobs:
         shell: bash
         run: just package "${{ inputs.version }}" "paper-auditor-${{ inputs.version }}-${{ matrix.target }}.${{ matrix.ext }}"
 
-      - name: Generate sha256 sidecar
-        shell: bash
-        run: |
-          artifact="paper-auditor-${{ inputs.version }}-${{ matrix.target }}.${{ matrix.ext }}"
-          shasum -a 256 "$artifact" > "$artifact.sha256"
-
       - if: ${{ !inputs.dryrun }}
         name: Upload to release
         env:
-          GH_TOKEN: ${{ secrets.PAPER_AUDITOR_WORKFLOW_PUBLISH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           artifact="paper-auditor-${{ inputs.version }}-${{ matrix.target }}.${{ matrix.ext }}"

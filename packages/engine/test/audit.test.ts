@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import path from 'node:path';
 import url from 'node:url';
-import { audit, stubClaimExtractor, type OpenAlexClient } from '../src';
+import {
+  audit,
+  renderReport,
+  stubClaimExtractor,
+  type OpenAlexClient,
+} from '../src';
 
 const here = path.dirname(url.fileURLToPath(import.meta.url));
 const fixturesDir = path.join(here, 'fixtures');
@@ -16,6 +21,17 @@ describe('audit', () => {
     expect(result.findings).toHaveLength(1);
     expect(result.findings[0]!.type).toBe('UnresolvedCitation');
     expect(result.findings[0]!.subject).toContain('nonexistent');
+  });
+
+  it('emits one UnresolvedCitation Finding for an author-year Citation with no matching Bibliography entry', async () => {
+    const result = await audit(
+      path.join(fixturesDir, 'author-year-unresolved.md'),
+      path.join(fixturesDir, 'author-year-unresolved.bib'),
+    );
+
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]!.type).toBe('UnresolvedCitation');
+    expect(result.findings[0]!.subject).toContain('Ghost 1999');
   });
 
   it('emits zero Findings when every Citation Key resolves in the Bibliography', async () => {
@@ -115,6 +131,28 @@ describe('audit', () => {
     expect(result.findings.some((f) => f.type === 'UnverifiableSource')).toBe(
       true,
     );
+  });
+
+  it('emits a NoCitationsDetected Finding when the Paper has no Citations and the Bibliography is empty', async () => {
+    const result = await audit(
+      path.join(fixturesDir, 'no-citations.md'),
+      path.join(fixturesDir, 'no-citations.bib'),
+    );
+
+    expect(result.findings.some((f) => f.type === 'NoCitationsDetected')).toBe(
+      true,
+    );
+  });
+
+  it('renders actionable guidance instead of a false-clean "No Findings" report for empty inputs', async () => {
+    const result = await audit(
+      path.join(fixturesDir, 'no-citations.md'),
+      path.join(fixturesDir, 'no-citations.bib'),
+    );
+
+    const report = renderReport(result.findings);
+    expect(report).not.toContain('No Findings.');
+    expect(report).toMatch(/\.bib/);
   });
 
   it('emits UncitedClaim Findings via the injected ClaimExtractor', async () => {

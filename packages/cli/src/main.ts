@@ -18,6 +18,7 @@ export interface RunCliOptions {
   openAlexClient?: OpenAlexClient;
   claimExtractor?: ClaimExtractor;
   cachePath?: string;
+  fetch?: typeof fetch;
 }
 
 const USAGE =
@@ -73,6 +74,7 @@ export async function runCli(
       buildDefaultOpenAlexClient({
         cachePath: opts.cachePath,
         noCache,
+        ...(opts.fetch ? { fetch: opts.fetch } : {}),
       });
     const claimExtractor =
       opts.claimExtractor ??
@@ -96,6 +98,7 @@ export async function runCli(
 function buildDefaultOpenAlexClient(opts: {
   cachePath?: string;
   noCache: boolean;
+  fetch?: typeof fetch;
 }): OpenAlexClient {
   let cache: ResponseCache | undefined;
   if (!opts.noCache) {
@@ -104,7 +107,10 @@ function buildDefaultOpenAlexClient(opts: {
       path.join(homedir(), '.cache', 'paper-auditor', 'openalex.json');
     cache = createFileCache(cachePath);
   }
-  return createOpenAlexClient({ ...(cache ? { cache } : {}) });
+  return createOpenAlexClient({
+    ...(cache ? { cache } : {}),
+    ...(opts.fetch ? { fetch: opts.fetch } : {}),
+  });
 }
 
 if (import.meta.url === `file://${String(process.argv[1])}`) {

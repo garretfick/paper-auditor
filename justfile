@@ -72,3 +72,7 @@ package version artifact-name: setup
             exit 1
             ;;
     esac
+    # Emit a shasum-format sidecar (`<hash>  <filename>\n`) using node so
+    # the same recipe works on Linux, macOS, and Windows runners without
+    # shelling out to platform-specific tools (shasum / sha256sum / pwsh).
+    node -e 'const fs=require("fs"),c=require("crypto");const f=process.argv[1];const h=c.createHash("sha256").update(fs.readFileSync(f)).digest("hex");process.stdout.write(`${h}  ${f}\n`);' '{{artifact-name}}' > '{{artifact-name}}.sha256'

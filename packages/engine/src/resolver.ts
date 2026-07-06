@@ -2,6 +2,7 @@ export interface BibEntry {
   citationKey: string;
   title: string;
   authors: string[];
+  year?: number;
   doi?: string;
   arxivId?: string;
 }

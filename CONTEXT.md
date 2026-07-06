@@ -51,7 +51,7 @@ The category of a **Claim**, assigned by the **Claim Extractor**. One of:
 `Navigation` (structural sentences like "Section 3 presents…" — no Citation required).
 
 **Finding**:
-A single issue surfaced by the audit. Has a `Type` (e.g. `UncitedClaim`, `UnresolvedCitation`, `FabricatedSource`, `UnverifiableSource`), a `Location` in the **Paper**, a `Subject` (the offending Claim or Citation text), a `Detail` (human-readable explanation), and a `Confidence` level.
+A single issue surfaced by the audit. Has a `Type` (e.g. `UncitedClaim`, `UnresolvedCitation`, `FabricatedSource`, `UnverifiableSource`, `NoCitationsDetected`), a `Location` in the **Paper**, a `Subject` (the offending Claim or Citation text), a `Detail` (human-readable explanation), and a `Confidence` level. Most **Finding** types point at something wrong _in_ the **Paper**; `NoCitationsDetected` is the exception — it reports that the audit ran against essentially no inputs (no **Citations** and an empty **Bibliography**), so that a clean report can never be mistaken for "the tool checked my work and found nothing wrong."
 _Avoid_: Issue, problem, error, warning.
 
 **Source Resolution**:
